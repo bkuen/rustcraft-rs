@@ -12,3 +12,6 @@ categories = ["game"]
 edition = "2018"
 
 [dependencies]
+vulkano = "0.19.0"
+vulkano-win = "0.19.0"
+winit = "0.22.2"
