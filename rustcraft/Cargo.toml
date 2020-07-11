@@ -1,0 +1,14 @@
+[package]
+name = "rustcraft"
+version = "0.1.0"
+authors = ["Benjamin Kuen <info@benjamin-kuen.com>"]
+license = "GNU GPLv3"
+description = "A Minecraft clone written in Rust using OpenGL"
+readme = "README.md"
+homepage = "rustcraft.zproji.org"
+repository = "https://github.com/bkuen/rustcraft-rs"
+keywords = ["game", "voxel", "minecraft"]
+categories = ["game"]
+edition = "2018"
+
+[dependencies]
