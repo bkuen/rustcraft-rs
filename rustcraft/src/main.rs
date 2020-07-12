@@ -3,18 +3,17 @@
 
 use std::sync::Arc;
 use vulkano::{
-    instance::{ApplicationInfo, Instance, Version}
+    instance::{ApplicationInfo, Instance, Version},
+    swapchain::{Surface}
 };
+use vulkano_win::VkSurfaceBuild;
 use winit::{
     dpi::{LogicalSize},
     event::{Event},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder
+    window::{Window, WindowBuilder}
 };
-use winit::platform::desktop::EventLoopExtDesktop;
-use vulkano_win::VkSurfaceBuild;
-use winit::window::Window;
-use vulkano::swapchain::Surface;
+
 
 /// RustcraftApplication
 ///
