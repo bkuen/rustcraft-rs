@@ -3,7 +3,7 @@ name = "rustcraft"
 version = "0.1.0"
 authors = ["Benjamin Kuen <info@benjamin-kuen.com>"]
 license = "GNU GPLv3"
-description = "A Minecraft clone written in Rust using Vulkan"
+description = "A Minecraft clone written in Rust using OpenGL"
 readme = "README.md"
 homepage = "rustcraft.zproji.org"
 repository = "https://github.com/bkuen/rustcraft-rs"
@@ -11,7 +11,10 @@ keywords = ["game", "voxel", "minecraft"]
 categories = ["game"]
 edition = "2018"
 
+build = "build.rs"
+
 [dependencies]
-vulkano = "0.19.0"
-vulkano-win = "0.19.0"
-winit = "0.22.2"
+glfw = "0.39.0"
+
+[build-dependencies]
+gl_generator = "0.14.0"

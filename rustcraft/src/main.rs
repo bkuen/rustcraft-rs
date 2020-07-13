@@ -1,94 +1,124 @@
 //! Entry point and types/trait representing the
 //! application/game.
 
-use std::sync::Arc;
-use vulkano::{
-    instance::{ApplicationInfo, Instance, Version},
-    swapchain::{Surface}
-};
-use vulkano_win::VkSurfaceBuild;
-use winit::{
-    dpi::{LogicalSize},
-    event::{Event},
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder}
-};
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::rc::Rc;
 
+use glfw::{Action, Context, Key, Glfw, Window, WindowEvent};
+use std::sync::mpsc::Receiver;
 
-/// RustcraftApplication
+pub mod gl;
+
+/// Gl
 ///
-/// This struct represents the application and
-/// the main game loop.
-struct RustcraftApplication {
-    /// A event loop which is subscribable
-    events_loop: EventLoop<()>,
-    /// A Vulkan instance
-    instance: Arc<Instance>,
-    /// A window surface
-    window: Arc<Surface<Window>>,
+/// This struct is a wrapper around the `Gl` struct
+/// from the generated `OpenGL` source. It's used to
+/// reduce the amount of bytes from ~10mb to ~8b per
+/// copy. With this in place, the `GL` 'instance'
+/// could be cloned effectively.
+///
+/// Internally, a reference counted pointer is used
+/// to store the address to the `GL` instance. Moreover,
+/// the `Deref` trait is implemented to grant access to
+/// the associated types.
+#[derive(Clone)]
+pub struct Gl {
+    inner: Rc<gl::Gl>,
 }
 
-impl RustcraftApplication {
-    const WIDTH: u32 = 800;
-    const HEIGHT: u32 = 600;
+impl Gl {
+    /// Instantiate a new instance of the wrapping `Gl` struct using
+    /// `gl::Gl::load_with(...)` under the hood.
+    pub fn load_with<F>(load_fn: F) -> Gl
+        where F: FnMut(&'static str) -> *const gl::types::GLvoid
+    {
+        Gl {
+            inner: Rc::new(gl::Gl::load_with(load_fn))
+        }
+    }
+}
 
-    /// Instantiate a new `RustCraftApplication`
+impl Deref for Gl {
+    type Target = gl::Gl;
+
+    fn deref(&self) -> &gl::Gl {
+        &self.inner
+    }
+}
+
+/// Rustcraft
+///
+/// The `Rustcraft` struct represents the main
+/// application. It provides all game related
+/// functionality like `window creation`, `game loop`
+/// and `rendering`.
+struct Rustcraft {
+    /// A `OpenGL` 'instance'
+    gl: Gl,
+    /// A `GLFW` instance
+    glfw: Glfw,
+    /// An `GLFW` event receiver
+    events: Receiver<(f64, WindowEvent)>,
+    /// A `GLFW` window,
+    window: Window,
+}
+
+impl Rustcraft {
+    /// Initialize a new `Rustcraft` application
+    /// by creating an event loop, a window and
+    /// an `OpenGL` instance/context.
     pub fn new() -> Self {
-        let instance = Self::create_instance();
-        let events_loop = EventLoop::new();
-        let window = Self::create_window(&events_loop, instance.clone());
+        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let (mut window, events) = Self::create_window(&glfw);
+
+        let gl = Gl::load_with(|s| window.get_proc_address(s) as *const std::os::raw::c_void);
         Self {
-            events_loop,
-            instance,
-            window
+            glfw,
+            gl,
+            events,
+            window,
         }
     }
 
-    /// Initialize a new Vulkan instance and returns it.
-    /// If an error occures, this function will panic.
-    fn create_instance() -> Arc<Instance> {
-        let app_info = ApplicationInfo {
-            application_name: Some("Rustcraft".into()),
-            application_version: Some(Version { major: 1, minor: 0, patch: 0 }),
-            engine_name: Some("No Engine".into()),
-            engine_version: Some(Version { major: 1, minor: 0, patch: 0 }),
-        };
+    /// Create a new `GLFW` window with a title
+    fn create_window(glfw: &Glfw) -> (Window, Receiver<(f64, WindowEvent)>) {
+        let (mut window, events) = glfw.create_window(1280, 720, "", glfw::WindowMode::Windowed)
+            .expect("Failed to create window.");
 
-        let required_extensions = vulkano_win::required_extensions();
-        Instance::new(Some(&app_info), &required_extensions, None)
-            .expect("Failed to create Vulkan instance")
+        window.make_current();
+        window.set_all_polling(true);
+
+        (window, events)
     }
 
-    /// Initialize a new `Winit` Window and return
-    /// its event loop.
-    fn create_window(events_loop: &EventLoop<()>, instance: Arc<Instance>) -> Arc<Surface<Window>> {
-        let window = WindowBuilder::new()
-            .with_title("Rustcraft 0.1.0")
-            .with_inner_size(LogicalSize::new(
-                RustcraftApplication::WIDTH,
-                RustcraftApplication::HEIGHT
-            ))
-            .build_vk_surface(events_loop, instance).unwrap();
+    /// Run the main game loop of `Rustcraft`
+    fn run(&mut self) {
+        while !self.window.should_close() {
 
-        window
-    }
-
-    /// This function subscribes to the event loop and keeps
-    /// the window alive.
-    fn run(self) {
-        self.events_loop.run(|event, _, control_flow| {
-            match event {
-                Event::WindowEvent { event: winit::event::WindowEvent::CloseRequested, .. } => {
-                    *control_flow = ControlFlow::Exit;
-                },
-                _ => ()
+            unsafe {
+                self.gl.ClearColor(1.0, 0.4, 0.4, 1.0);
+                self.gl.Clear(gl::COLOR_BUFFER_BIT);
             }
-        });
+
+            self.window.swap_buffers();
+            self.glfw.poll_events();
+
+            for (_, event) in glfw::flush_messages(&self.events) {
+                println!("{:?}", event);
+                match event {
+                    glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
+                        self.window.set_should_close(true)
+                    },
+                    _ => {},
+                }
+            }
+        }
     }
 }
 
-/// The entry point of the `Rustcraft` application.
+/// The entry function of this binary
 fn main() {
-    let application = RustcraftApplication::new();
-    application.run();
+    let mut rustcraft = Rustcraft::new();
+    rustcraft.run();
 }
