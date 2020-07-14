@@ -4,11 +4,12 @@
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
-
-use glfw::{Action, Context, Key, Glfw, Window, WindowEvent};
 use std::sync::mpsc::Receiver;
 
+use glfw::{Action, Context, Key, Glfw, Window, WindowEvent};
+
 pub mod gl;
+pub mod graphics;
 
 /// Gl
 ///
