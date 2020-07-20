@@ -1,52 +1,16 @@
 //! Entry point and types/trait representing the
 //! application/game.
 
-use std::cell::RefCell;
-use std::ops::Deref;
-use std::rc::Rc;
-use std::sync::mpsc::Receiver;
+use crate::graphics::gl::{Gl, gl, types::*};
+use crate::graphics::shader::{Shader, ShaderProgram};
 
 use glfw::{Action, Context, Key, Glfw, Window, WindowEvent};
 
-pub mod gl;
+use std::ffi::{CString};
+use std::mem::size_of;
+use std::sync::mpsc::Receiver;
+
 pub mod graphics;
-
-/// Gl
-///
-/// This struct is a wrapper around the `Gl` struct
-/// from the generated `OpenGL` source. It's used to
-/// reduce the amount of bytes from ~10mb to ~8b per
-/// copy. With this in place, the `GL` 'instance'
-/// could be cloned effectively.
-///
-/// Internally, a reference counted pointer is used
-/// to store the address to the `GL` instance. Moreover,
-/// the `Deref` trait is implemented to grant access to
-/// the associated types.
-#[derive(Clone)]
-pub struct Gl {
-    inner: Rc<gl::Gl>,
-}
-
-impl Gl {
-    /// Instantiate a new instance of the wrapping `Gl` struct using
-    /// `gl::Gl::load_with(...)` under the hood.
-    pub fn load_with<F>(load_fn: F) -> Gl
-        where F: FnMut(&'static str) -> *const gl::types::GLvoid
-    {
-        Gl {
-            inner: Rc::new(gl::Gl::load_with(load_fn))
-        }
-    }
-}
-
-impl Deref for Gl {
-    type Target = gl::Gl;
-
-    fn deref(&self) -> &gl::Gl {
-        &self.inner
-    }
-}
 
 /// Rustcraft
 ///
@@ -70,7 +34,7 @@ impl Rustcraft {
     /// by creating an event loop, a window and
     /// an `OpenGL` instance/context.
     pub fn new() -> Self {
-        let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
         let (mut window, events) = Self::create_window(&glfw);
 
         let gl = Gl::load_with(|s| window.get_proc_address(s) as *const std::os::raw::c_void);
@@ -94,19 +58,80 @@ impl Rustcraft {
     }
 
     /// Run the main game loop of `Rustcraft`
-    fn run(&mut self) {
+    unsafe fn run(&mut self) {
+
+        let vs = Shader::from_vert_source(
+            &self.gl,
+            &CString::new(include_str!("../res/shaders/basic.vert")).unwrap()
+        ).unwrap();
+
+        let fs = Shader::from_frag_source(
+            &self.gl,
+            &CString::new(include_str!("../res/shaders/basic.frag")).unwrap()
+        ).unwrap();
+
+        let shader_program = ShaderProgram::from_shaders(
+            &self.gl,
+        &[vs, fs]
+        ).unwrap();
+
+        shader_program.enable();
+
+        let positions: [f32; 8] = [
+            -0.5, -0.5,
+             0.5, -0.5,
+             0.5,  0.5,
+            -0.5,  0.5,
+        ];
+
+        let indices: [u32; 6] = [
+            0, 1, 2,
+            2, 3, 0
+        ];
+
+        let mut buffer: GLuint = 0;
+        self.gl.GenBuffers(1, &mut buffer);
+        self.gl.BindBuffer(gl::ARRAY_BUFFER, buffer);
+        self.gl.BufferData(
+            gl::ARRAY_BUFFER,
+            4 * 2 * size_of::<f32>() as isize,
+            positions.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW
+        );
+
+        self.gl.EnableVertexAttribArray(0);
+        self.gl.VertexAttribPointer(0, 2, gl::FLOAT, gl::FALSE, 2 * (size_of::<f32>() as GLsizei), std::ptr::null());
+
+        let mut ibo: GLuint = 0;
+        self.gl.GenBuffers(1, &mut ibo);
+        self.gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ibo);
+        self.gl.BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            6 * size_of::<u32>() as isize,
+            indices.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW
+        );
+
         while !self.window.should_close() {
+            // Render here
+            self.gl.ClearColor(1.0, 0.4, 0.4, 1.0);
+            self.gl.Clear(gl::COLOR_BUFFER_BIT);
 
-            unsafe {
-                self.gl.ClearColor(1.0, 0.4, 0.4, 1.0);
-                self.gl.Clear(gl::COLOR_BUFFER_BIT);
-            }
+            // Check for errors
+            // gl_clear_error(&self.gl);
 
+            self.gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
+
+            // assert!(gl_check_error(&self.gl));
+
+            // Swap front and back buffers
             self.window.swap_buffers();
+
+            // Poll for and process events
             self.glfw.poll_events();
 
             for (_, event) in glfw::flush_messages(&self.events) {
-                println!("{:?}", event);
+                // println!("{:?}", event);
                 match event {
                     glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
                         self.window.set_should_close(true)
@@ -118,8 +143,22 @@ impl Rustcraft {
     }
 }
 
+// unsafe fn gl_clear_error(gl: &Gl) {
+//     while gl.GetError() != gl::NO_ERROR {}
+// }
+//
+// unsafe fn gl_check_error(gl: &Gl) -> bool {
+//     while let error = gl.GetError() as gl::types::GLenum  {
+//         println!("[OpenGL] ({})", error);
+//         return false;
+//     }
+//     return true;
+// }
+
 /// The entry function of this binary
 fn main() {
     let mut rustcraft = Rustcraft::new();
-    rustcraft.run();
+    unsafe {
+        rustcraft.run();
+    }
 }
