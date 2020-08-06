@@ -17,6 +17,7 @@ pub enum ShaderType {
 
 impl ShaderType {
     /// Returns the `OpenGL` equivalent type
+    #[allow(unreachable_patterns)]
     fn opengl_type(&self) -> GLenum {
         match self {
             ShaderType::Vertex => gl::VERTEX_SHADER,
@@ -164,6 +165,11 @@ impl ShaderProgram {
     /// Enables the shader program
     pub fn enable(&self) {
         unsafe { self.gl.UseProgram(self.id); }
+    }
+
+    /// Disables the shader program
+    pub fn disable(&self) {
+        unsafe { self.gl.UseProgram(0); }
     }
 
     /// Returns the id of the program
