@@ -4,6 +4,8 @@
 use crate::graphics::gl::{Gl, gl, types::*};
 
 use std::ffi::{CStr, CString};
+use std::collections::HashMap;
+use std::borrow::BorrowMut;
 
 /// ShaderType
 ///
@@ -111,6 +113,8 @@ pub struct ShaderProgram {
     id: GLuint,
     /// An `OpenGL` instance
     gl: Gl,
+    /// The uniform cache
+    uniform_cache: HashMap<String, i32>,
 }
 
 impl ShaderProgram {
@@ -158,7 +162,8 @@ impl ShaderProgram {
 
         Ok(ShaderProgram {
             id,
-            gl: gl.clone()
+            gl: gl.clone(),
+            uniform_cache: HashMap::new(),
         })
     }
 
@@ -170,6 +175,27 @@ impl ShaderProgram {
     /// Disables the shader program
     pub fn disable(&self) {
         unsafe { self.gl.UseProgram(0); }
+    }
+
+    /// A a uniform of f32 to the shader
+    pub fn set_uniform_4f(&mut self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
+        let location = self.uniform_location(name);
+        unsafe { self.gl.Uniform4f(location, v0, v1, v2, v3); }
+    }
+
+    /// Gets the uniform location of a certain name
+    /// if it exists. Otherwise it would return `None`.
+    pub fn uniform_location(&mut self, name: &str) -> i32 {
+        if let Some(location) = self.uniform_cache.get(name.into()) {
+            return *location;
+        }
+
+        let location = unsafe { self.gl.GetUniformLocation(self.id, name.as_ptr() as *const i8) };
+        self.uniform_cache.insert(name.into(), location);
+        if location == -1 {
+            println!("Warning: uniform {} doesn't exist!", name);
+        }
+        location
     }
 
     /// Returns the id of the program
