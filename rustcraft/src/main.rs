@@ -11,6 +11,7 @@ use std::ffi::{CString};
 use std::mem::size_of;
 use std::sync::mpsc::Receiver;
 use glfw::ffi::glfwDefaultWindowHints;
+use crate::graphics::renderer::Renderer;
 
 pub mod graphics;
 pub mod resources;
@@ -101,24 +102,18 @@ impl Rustcraft {
         ib.unbind();
         shader_program.disable();
 
+        let renderer = Renderer::new(&self.gl);
+
         let mut g = 0.0;
         let mut inc = 0.05;
         while !self.window.should_close() {
             // Render here
-            unsafe {
-                self.gl.ClearColor(1.0, 0.4, 0.4, 1.0);
-                self.gl.Clear(gl::COLOR_BUFFER_BIT);
-            }
+            renderer.clear();
 
             shader_program.enable();
             shader_program.set_uniform_4f("u_Color", 0.3, g, 0.6, 1.0);
 
-            va.bind();
-            ib.bind();
-
-            unsafe {
-                self.gl.DrawElements(gl::TRIANGLES, 6, gl::UNSIGNED_INT, std::ptr::null());
-            }
+            renderer.draw(&va, &ib, &mut shader_program);
 
             if g > 1.0 {
                 inc = -0.05;
