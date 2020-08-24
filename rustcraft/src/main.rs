@@ -12,6 +12,9 @@ use std::mem::size_of;
 use std::sync::mpsc::Receiver;
 use glfw::ffi::glfwDefaultWindowHints;
 use crate::graphics::renderer::Renderer;
+use crate::resources::Resources;
+use std::path::Path;
+use crate::graphics::bindings::SHADER;
 
 pub mod graphics;
 pub mod resources;
@@ -81,10 +84,10 @@ impl Rustcraft {
             2, 3, 0
         ];
 
-        let vs = Shader::from_vert_source(&self.gl, &CString::new(include_str!("../res/shaders/basic.vert")).unwrap()).unwrap();
-        let fs = Shader::from_frag_source(&self.gl, &CString::new(include_str!("../res/shaders/basic.frag")).unwrap()).unwrap();
+        let resources = Resources::from_relative_exe_path(Path::new("res")).unwrap();
+        let mut shader_program = ShaderProgram::from_res(&self.gl, &resources, "basic").unwrap();
 
-        let mut shader_program = ShaderProgram::from_shaders(&self.gl, &[vs, fs]).unwrap();
+        // let mut shader_program = ShaderProgram::from_shaders(&self.gl, &[vs, fs]).unwrap();
         shader_program.enable();
         shader_program.set_uniform_4f("u_Color", 0.3, 0.8, 0.6, 1.0);
 

@@ -6,12 +6,14 @@ use crate::graphics::gl::{Gl, gl, types::*};
 use std::ffi::{CStr, CString};
 use std::collections::HashMap;
 use std::borrow::BorrowMut;
+use crate::resources::Resources;
 
 /// ShaderType
 ///
 /// A shader could be either one of these:
 /// * `Vertex`
 /// * `Fragment`
+#[derive(Copy, Clone, Debug)]
 pub enum ShaderType {
     Vertex,
     Fragment,
@@ -44,6 +46,32 @@ pub struct Shader {
 }
 
 impl Shader {
+    /// Creates a new `Shader` from given `Resources` and its name
+    /// if the source is valid.
+    /// Otherwise, it will return the error message.
+    ///
+    /// # Arguments
+    ///
+    /// * `gl` - A reference to an `OpenGL` instance
+    /// * `res` - A `Resource` instance
+    /// * `name` - The name of the shader
+    pub fn from_res(gl: &Gl, res: &Resources, name: &str) -> Result<Shader, String> {
+        const POSSIBLE_EXT: [(&str, ShaderType); 2] = [
+            (".vert", ShaderType::Vertex),
+            (".frag", ShaderType::Fragment),
+        ];
+
+        let shader_type = POSSIBLE_EXT.iter()
+            .find(|&&(file_extension, _)| name.ends_with(file_extension))
+            .map(|&(_, kind)| kind)
+            .ok_or_else(|| format!("Can not determine shader type for resource {}", name))?;
+
+        let source = res.load_cstring(name)
+            .map_err(|e| format!("Error loading resource {}: {:?}", name, e))?;
+
+        Shader::from_source(gl, &source, shader_type)
+    }
+
     /// Creates a new `Shader` from a given source
     /// if the source is valid.
     /// Otherwise, it will return the error message.
@@ -118,10 +146,45 @@ pub struct ShaderProgram {
 }
 
 impl ShaderProgram {
+    /// Creates a shader program from the given `Resources` and
+    /// links all shaders from the given name and the supported
+    /// endings `.vert` and `.frag`.
+    /// Therefore, make sure to give associated shaders a
+    /// unique name and a correct ending, e.g. `basic.vert` and
+    /// `basic.frag`.
+    ///
+    /// If an error occurs, it will return the error
+    /// message.
+    ///
+    /// # Arguments
+    ///
+    /// * `gl` - An `OpenGL` instance
+    /// * `res` - A `Resources` instance
+    /// * `name` - The name of the shaders
+    pub fn from_res(gl: &Gl, res: &Resources, name: &str) -> Result<ShaderProgram, String> {
+        const POSSIBLE_EXT: [&str; 2] = [
+            ".vert",
+            ".frag",
+        ];
+
+        let shaders = POSSIBLE_EXT.iter()
+            .map(|file_extension| {
+                Shader::from_res(gl, res, &format!("shaders/{}{}", name, file_extension))
+            })
+            .collect::<Result<Vec<Shader>, String>>()?;
+
+        ShaderProgram::from_shaders(gl, &shaders[..])
+    }
+
     /// Creates a shader program and links the given
     /// shaders into it.
     /// If an error occurs, it will return the error
     /// message.
+    ///
+    /// # Arguments
+    ///
+    /// * `gl` - An `OpenGL` instance
+    /// * `shaders` - A slice of different `Shader`s
     pub fn from_shaders(gl: &Gl, shaders: &[Shader]) -> Result<ShaderProgram, String> {
         let id = unsafe { gl.CreateProgram() };
 
