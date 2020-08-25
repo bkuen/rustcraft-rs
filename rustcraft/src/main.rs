@@ -3,18 +3,16 @@
 
 use crate::graphics::buffer::{VertexBuffer, IndexBuffer, VertexArray, VertexBufferLayout};
 use crate::graphics::gl::{Gl, gl, types::*};
-use crate::graphics::shader::{Shader, ShaderProgram};
+use crate::graphics::shader::{ShaderProgram};
 
 use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint};
 
-use std::ffi::{CString};
 use std::mem::size_of;
 use std::sync::mpsc::Receiver;
-use glfw::ffi::glfwDefaultWindowHints;
 use crate::graphics::renderer::Renderer;
 use crate::resources::Resources;
 use std::path::Path;
-use crate::graphics::bindings::SHADER;
+use crate::graphics::texture::Texture;
 
 pub mod graphics;
 pub mod resources;
@@ -72,11 +70,14 @@ impl Rustcraft {
     fn run(&mut self) {
         self.glfw.set_swap_interval(SwapInterval::Sync(1));
 
-        let positions: [f32; 8] = [
-            -0.5, -0.5,
-             0.5, -0.5,
-             0.5,  0.5,
-            -0.5,  0.5,
+        unsafe { self.gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA); }
+
+        let positions: [f32; 16] = [
+        //  Coords      Texture coords
+            -0.5, -0.5, 0.0, 0.0,
+             0.5, -0.5, 1.0, 0.0,
+             0.5,  0.5, 1.0, 1.0,
+            -0.5,  0.5, 0.0, 1.0,
         ];
 
         let indices: [u32; 6] = [
@@ -92,13 +93,18 @@ impl Rustcraft {
         shader_program.set_uniform_4f("u_Color", 0.3, 0.8, 0.6, 1.0);
 
         let va = VertexArray::new(&self.gl);
-        let vb = VertexBuffer::new(&self.gl, positions.as_ptr() as *const GLvoid, 4 * 2 * size_of::<f32>() as isize);
+        let vb = VertexBuffer::new(&self.gl, positions.as_ptr() as *const GLvoid, 4 * 4 * size_of::<f32>() as isize);
 
         let mut buffer_layout = VertexBufferLayout::new();
+        buffer_layout.push_f32(2);
         buffer_layout.push_f32(2);
         va.add_buffer(&vb, &buffer_layout);
 
         let ib = IndexBuffer::new(&self.gl, indices.as_ptr(), 6);
+
+        let texture = Texture::from_resource(&self.gl, &resources, "textures/dirt_block.jpg");
+        texture.bind(None);
+        shader_program.set_uniform_1i("u_Texture", 0);
 
         va.unbind();
         vb.unbind();

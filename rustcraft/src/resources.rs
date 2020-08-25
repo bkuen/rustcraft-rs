@@ -4,17 +4,25 @@ use std::ffi;
 use std::fs;
 use std::io::{self, Read, Error};
 use std::path::{Path, PathBuf};
+use image::{ImageError, DynamicImage};
 
 #[derive(Debug)]
 pub enum ResourceError {
     FailedToGetExePath,
     FileContainsNil,
     Io(io::Error),
+    Image(image::ImageError),
 }
 
 impl From<io::Error> for ResourceError {
     fn from(error: Error) -> Self {
         ResourceError::Io(error)
+    }
+}
+
+impl From<image::ImageError> for ResourceError {
+    fn from(error: ImageError) -> Self {
+        ResourceError::Image(error)
     }
 }
 
@@ -67,7 +75,16 @@ impl Resources {
         Ok(unsafe { ffi::CString::from_vec_unchecked(buffer)})
     }
 
-
+    /// Loads a image from a resource directory.
+    ///
+    /// # Arguments
+    ///
+    /// * `resource_name` - The resource name the image should be read.
+    pub fn load_image(&self, resource_name: &str) -> Result<DynamicImage, ResourceError> {
+        let path = resource_name_to_path(&self.root_path, resource_name);
+        let image = image::open(path)?;
+        Ok(image)
+    }
 }
 
 /// Helper function which takes a root directory and a path location
