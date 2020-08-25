@@ -70,7 +70,10 @@ impl Rustcraft {
     fn run(&mut self) {
         self.glfw.set_swap_interval(SwapInterval::Sync(1));
 
-        unsafe { self.gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA); }
+        unsafe {
+            self.gl.Enable(gl::BLEND);
+            self.gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        }
 
         let positions: [f32; 16] = [
         //  Coords      Texture coords
