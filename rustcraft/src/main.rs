@@ -4,18 +4,21 @@
 use crate::graphics::buffer::{VertexBuffer, IndexBuffer, VertexArray, VertexBufferLayout};
 use crate::graphics::gl::{Gl, gl, types::*};
 use crate::graphics::shader::{ShaderProgram};
-
-use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint};
-
-use std::mem::size_of;
-use std::sync::mpsc::Receiver;
 use crate::graphics::renderer::Renderer;
-use crate::resources::Resources;
-use std::path::Path;
 use crate::graphics::texture::Texture;
+use crate::resources::Resources;
+use cgmath::{Vector4, Matrix4, SquareMatrix, Vector3};
+use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint};
+use std::mem::size_of;
+use std::path::Path;
+use std::sync::mpsc::Receiver;
+use crate::timestep::TimeStep;
+use crate::camera::PerspectiveCamera;
 
+pub mod camera;
 pub mod graphics;
 pub mod resources;
+pub mod timestep;
 
 /// Rustcraft
 ///
@@ -32,6 +35,8 @@ struct Rustcraft {
     events: Receiver<(f64, WindowEvent)>,
     /// A `GLFW` window,
     window: Window,
+    /// The last frame time
+    last_frame_time: f64,
 }
 
 impl Rustcraft {
@@ -52,12 +57,13 @@ impl Rustcraft {
             gl,
             events,
             window,
+            last_frame_time: 0.0,
         }
     }
 
     /// Create a new `GLFW` window with a title
     fn create_window(glfw: &Glfw) -> (Window, Receiver<(f64, WindowEvent)>) {
-        let (mut window, events) = glfw.create_window(1280, 720, "", glfw::WindowMode::Windowed)
+        let (mut window, events) = glfw.create_window(1024, 768, "", glfw::WindowMode::Windowed)
             .expect("Failed to create window.");
 
         window.make_current();
@@ -72,40 +78,71 @@ impl Rustcraft {
 
         unsafe {
             self.gl.Enable(gl::BLEND);
+            self.gl.Enable(gl::DEPTH_TEST);
             self.gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
-        let positions: [f32; 16] = [
-        //  Coords      Texture coords
-            -0.5, -0.5, 0.0, 0.0,
-             0.5, -0.5, 1.0, 0.0,
-             0.5,  0.5, 1.0, 1.0,
-            -0.5,  0.5, 0.0, 1.0,
+
+        let cube_vertices: [f32; 40] = [
+            // front
+            -1.0, -1.0,  1.0, 0.0, 0.0,
+             1.0, -1.0,  1.0, 0.0, 0.0,
+             1.0,  1.0,  1.0, 0.0, 0.0,
+            -1.0,  1.0,  1.0, 0.0, 0.0,
+            // back
+            -1.0, -1.0, -1.0, 0.0, 0.0,
+             1.0, -1.0, -1.0, 0.0, 0.0,
+             1.0,  1.0, -1.0, 0.0, 0.0,
+            -1.0,  1.0, -1.0, 0.0, 0.0,
         ];
 
-        let indices: [u32; 6] = [
+        let cube_indices: [u32; 36] = [
+            // front
             0, 1, 2,
-            2, 3, 0
+            2, 3, 0,
+            // right
+            1, 5, 6,
+            6, 2, 1,
+            // back
+            7, 6, 5,
+            5, 4, 7,
+            // left
+            4, 0, 3,
+            3, 7, 4,
+            // bottom
+            4, 5, 1,
+            1, 0, 4,
+            // top
+            3, 2, 6,
+            6, 7, 3,
         ];
 
         let resources = Resources::from_relative_exe_path(Path::new("res")).unwrap();
-        let mut shader_program = ShaderProgram::from_res(&self.gl, &resources, "basic").unwrap();
+        let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 0.0,  5.0));
+        camera.set_pos(Vector3::new(0f32, 2f32, 0f32));
+        camera.look_at(Vector3::new(0f32, 0f32, -4f32));
 
-        // let mut shader_program = ShaderProgram::from_shaders(&self.gl, &[vs, fs]).unwrap();
+        let model = Matrix4::from_translation(Vector3::new(0.0, 0.0, -4.0));
+        let view = camera.view_matrix();
+        let proj = camera.proj_matrix();
+        let mvp = proj * view * model;
+
+        let mut shader_program = ShaderProgram::from_res(&self.gl, &resources, "basic").unwrap();
         shader_program.enable();
-        shader_program.set_uniform_4f("u_Color", 0.3, 0.8, 0.6, 1.0);
+
+        shader_program.set_uniform_mat4f("u_MVP", &mvp);
 
         let va = VertexArray::new(&self.gl);
-        let vb = VertexBuffer::new(&self.gl, positions.as_ptr() as *const GLvoid, 4 * 4 * size_of::<f32>() as isize);
+        let vb = VertexBuffer::new(&self.gl, cube_vertices.as_ptr() as *const GLvoid, 5 * 8 * size_of::<f32>() as isize);
 
         let mut buffer_layout = VertexBufferLayout::new();
-        buffer_layout.push_f32(2);
+        buffer_layout.push_f32(3);
         buffer_layout.push_f32(2);
         va.add_buffer(&vb, &buffer_layout);
 
-        let ib = IndexBuffer::new(&self.gl, indices.as_ptr(), 6);
+        let ib = IndexBuffer::new(&self.gl, cube_indices.as_ptr(), 36);
 
-        let texture = Texture::from_resource(&self.gl, &resources, "textures/dirt_block.jpg");
+        let texture = Texture::from_resource(&self.gl, &resources, "textures/grass.png");
         texture.bind(None);
         shader_program.set_uniform_1i("u_Texture", 0);
 
@@ -116,23 +153,22 @@ impl Rustcraft {
 
         let renderer = Renderer::new(&self.gl);
 
-        let mut g = 0.0;
-        let mut inc = 0.05;
         while !self.window.should_close() {
+            let time = self.glfw.get_time();
+            let time_step = TimeStep(time - self.last_frame_time);
+            self.last_frame_time = time;
+
             // Render here
             renderer.clear();
 
             shader_program.enable();
-            shader_program.set_uniform_4f("u_Color", 0.3, g, 0.6, 1.0);
+            let view = camera.view_matrix();
+            let proj = camera.proj_matrix();
+            let mvp = proj * view * model;
+            shader_program.set_uniform_mat4f("u_MVP", &mvp);
+            shader_program.disable();
 
             renderer.draw(&va, &ib, &mut shader_program);
-
-            if g > 1.0 {
-                inc = -0.05;
-            } else if g < 0.0 {
-                inc = 0.05;
-            }
-            g += inc;
 
             // Swap front and back buffers
             self.window.swap_buffers();
@@ -144,6 +180,30 @@ impl Rustcraft {
                 match event {
                     glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
                         self.window.set_should_close(true)
+                    },
+                    glfw::WindowEvent::Key(Key::W, _, Action::Repeat, _) => {
+                        camera.set_offset(Vector3::new(0.0, 0.0, -0.2));
+                    },
+                    glfw::WindowEvent::Key(Key::W, _, Action::Press, _) => {
+                        camera.set_offset(Vector3::new(0.0, 0.0, -0.2));
+                    },
+                    glfw::WindowEvent::Key(Key::A, _, Action::Press, _) => {
+                        camera.set_offset(Vector3::new(-0.2, 0.0, 0.0));
+                    },
+                    glfw::WindowEvent::Key(Key::A, _, Action::Repeat, _) => {
+                        camera.set_offset(Vector3::new(-0.2, 0.0, 0.0));
+                    },
+                    glfw::WindowEvent::Key(Key::S, _, Action::Press, _) => {
+                        camera.set_offset(Vector3::new(0.0, 0.0, 0.2));
+                    },
+                    glfw::WindowEvent::Key(Key::S, _, Action::Repeat, _) => {
+                        camera.set_offset(Vector3::new(0.0, 0.0, 0.2));
+                    },
+                    glfw::WindowEvent::Key(Key::D, _, Action::Press, _) => {
+                        camera.set_offset(Vector3::new(0.2, 0.0, 0.0))
+                    },
+                    glfw::WindowEvent::Key(Key::D, _, Action::Repeat, _) => {
+                        camera.set_offset(Vector3::new(0.2, 0.0, 0.0))
                     },
                     _ => {},
                 }

@@ -6,6 +6,7 @@ use crate::graphics::gl::{Gl, gl, types::*};
 use std::ffi::{CStr, CString};
 use std::collections::HashMap;
 use crate::resources::Resources;
+use cgmath::{Matrix4, Matrix};
 
 /// ShaderType
 ///
@@ -239,23 +240,29 @@ impl ShaderProgram {
         unsafe { self.gl.UseProgram(0); }
     }
 
-    /// Sets a uniform of an i32 to the shader
+    /// Sets a uniform of i32
     pub fn set_uniform_1i(&mut self, name: &str, v: i32) {
         let location = self.uniform_location(name);
         unsafe { self.gl.Uniform1i(location, v); }
     }
 
-    /// Sets a uniform of a f32 to the shader
+    /// Sets a uniform of f32
     pub fn set_uniform_1f(&mut self, name: &str, v: f32) {
         let location = self.uniform_location(name);
         unsafe { self.gl.Uniform1f(location, v); }
     }
 
 
-    /// Sets a uniform of four f32 to the shader
+    /// Sets a uniform of four f32
     pub fn set_uniform_4f(&mut self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
         let location = self.uniform_location(name);
         unsafe { self.gl.Uniform4f(location, v0, v1, v2, v3); }
+    }
+
+    /// Sets a uniform of mat4
+    pub fn set_uniform_mat4f(&mut self, name: &str, v: &Matrix4<f32>) {
+        let location = self.uniform_location(name);
+        unsafe { self.gl.UniformMatrix4fv(location, 1, gl::FALSE, v.as_ptr()) }
     }
 
     /// Gets the uniform location of a certain name

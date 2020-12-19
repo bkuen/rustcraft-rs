@@ -27,10 +27,11 @@ impl Renderer {
     pub fn clear(&self) {
         unsafe {
             self.gl.Clear(gl::COLOR_BUFFER_BIT);
+            self.gl.Clear(gl::DEPTH_BUFFER_BIT);
         }
     }
 
-    /// Draws the given buffers vertex arrysa, shaders and cameras
+    /// Draws the given buffers vertex arrays, shaders and cameras
     ///
     /// # Arguments
     ///
@@ -43,7 +44,12 @@ impl Renderer {
         ib.bind();
 
         unsafe {
-            self.gl.DrawElements(gl::TRIANGLES, ib.index_count() as i32, gl::UNSIGNED_INT, std::ptr::null());
+            self.gl.DrawElements(
+                gl::TRIANGLES,
+                ib.index_count() as i32,
+                gl::UNSIGNED_INT,
+                std::ptr::null()
+            );
         }
     }
 }

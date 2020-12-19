@@ -16,6 +16,7 @@ build = "build.rs"
 [dependencies]
 glfw = "0.39.0"
 image = "0.23.8"
+cgmath = "0.17.0"
 
 [build-dependencies]
 gl_generator = "0.14.0"
