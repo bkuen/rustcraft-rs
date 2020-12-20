@@ -194,59 +194,10 @@ impl Rustcraft {
                     self.window.set_should_close(true);
                     return;
                 }
-
-                /*match event {
-                    glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
-                        self.window.set_should_close(true)
-                    },
-                    glfw::WindowEvent::Key(Key::W, _, Action::Repeat, _) => {
-                        camera.set_offset(Vector3::new(0.0, 0.0, -0.2));
-                    },
-                    glfw::WindowEvent::Key(Key::W, _, Action::Press, _) => {
-                        camera.set_offset(Vector3::new(0.0, 0.0, -0.2));
-                    },
-                    glfw::WindowEvent::Key(Key::A, _, Action::Press, _) => {
-                        camera.set_offset(Vector3::new(-0.2, 0.0, 0.0));
-                    },
-                    glfw::WindowEvent::Key(Key::A, _, Action::Repeat, _) => {
-                        camera.set_offset(Vector3::new(-0.2, 0.0, 0.0));
-                    },
-                    glfw::WindowEvent::Key(Key::S, _, Action::Press, _) => {
-                        camera.set_offset(Vector3::new(0.0, 0.0, 0.2));
-                    },
-                    glfw::WindowEvent::Key(Key::S, _, Action::Repeat, _) => {
-                        camera.set_offset(Vector3::new(0.0, 0.0, 0.2));
-                    },
-                    glfw::WindowEvent::Key(Key::D, _, Action::Press, _) => {
-                        camera.set_offset(Vector3::new(0.2, 0.0, 0.0))
-                    },
-                    glfw::WindowEvent::Key(Key::D, _, Action::Repeat, _) => {
-                        camera.set_offset(Vector3::new(0.2, 0.0, 0.0))
-                    },
-                    _ => {},
-                }*/
             }
         }
     }
 }
-
-// unsafe fn gl_clear_error(gl: &Gl) {
-//     while gl.GetError() != gl::NO_ERROR {}
-// }
-//
-// unsafe fn gl_check_error(gl: &Gl) -> bool {
-//     let mut error;
-//     loop {
-//         error = gl.GetError();
-//         if error != gl::NO_ERROR {
-//             println!("[OpenGL Error] {}", error);
-//             return false;
-//         } else {
-//             return true;
-//         }
-//     }
-//     return false;
-// }
 
 /// The entry function of this binary
 fn main() {
