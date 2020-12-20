@@ -26,17 +26,17 @@ impl Sub<f64> for TimeStep {
 
 impl TimeStep {
     /// Creates a new time step
-    fn new(time_step: f64) -> Self {
+    pub fn new(time_step: f64) -> Self {
         Self(time_step)
     }
 
     /// Returns the time step in seconds
-    fn seconds(&self) -> f64 {
+    pub fn seconds(&self) -> f64 {
         self.0
     }
 
     /// Returns the time step in milliseconds
-    fn milliseconds(&self) -> f64 {
-        self.0
+    pub fn milliseconds(&self) -> f64 {
+        self.0 * 1000.0
     }
 }
