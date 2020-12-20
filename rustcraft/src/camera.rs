@@ -278,7 +278,7 @@ impl Default for PerspectiveCamera {
         let mut camera = Self {
             camera: Camera::default(),
             fov: 45.0,
-            aspect_ratio: (180 / 720) as f32,
+            aspect_ratio: (1080 / 720) as f32,
             near_plane: 0.1,
             far_plane: 100.0,
             proj_matrix: Matrix4::zero(),

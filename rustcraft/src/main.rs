@@ -61,6 +61,13 @@ impl Rustcraft {
         window.set_cursor_pos(width as f64 / 2.0, height as f64 / 2.0);
 
         let gl = Gl::load_with(|s| window.get_proc_address(s) as *const std::os::raw::c_void);
+
+        unsafe {
+            gl.ClearColor(0.23, 0.38, 0.47, 1.0);
+            gl.Viewport(0, 0, width, height);
+        }
+
+
         Self {
             glfw,
             gl,
@@ -185,6 +192,8 @@ impl Rustcraft {
 
             // Poll for and process events
             self.glfw.poll_events();
+
+            // Handle player input
             input::handleMouseInput(&mut self.window, &mut camera);
             input::handleKeyInput(time_step, &self.window, &mut camera);
 
@@ -193,6 +202,11 @@ impl Rustcraft {
                 if let glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) = event {
                     self.window.set_should_close(true);
                     return;
+                }
+
+                if let glfw::WindowEvent::FramebufferSize(width, height) = event {
+                    unsafe { self.gl.Viewport(0, 0, width, height); }
+                    camera.set_aspect_ratio((width / height) as f32);
                 }
             }
         }
