@@ -1,6 +1,8 @@
 //! Entry point and types/trait representing the
 //! application/game.
 
+#![feature(clamp)]
+
 use crate::graphics::buffer::{VertexBuffer, IndexBuffer, VertexArray, VertexBufferLayout};
 use crate::graphics::gl::{Gl, gl, types::*};
 use crate::graphics::shader::{ShaderProgram};
@@ -8,14 +10,16 @@ use crate::graphics::renderer::Renderer;
 use crate::graphics::texture::Texture;
 use crate::resources::Resources;
 use cgmath::{Vector4, Matrix4, SquareMatrix, Vector3};
-use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint};
+use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint, CursorMode};
 use std::mem::size_of;
 use std::path::Path;
 use std::sync::mpsc::Receiver;
 use crate::timestep::TimeStep;
 use crate::camera::PerspectiveCamera;
+use cgmath::num_traits::FromPrimitive;
 
 pub mod camera;
+pub mod input;
 pub mod graphics;
 pub mod resources;
 pub mod timestep;
@@ -36,7 +40,7 @@ struct Rustcraft {
     /// A `GLFW` window,
     window: Window,
     /// The last frame time
-    last_frame_time: f64,
+    last_frame_time: f32,
 }
 
 impl Rustcraft {
@@ -51,6 +55,11 @@ impl Rustcraft {
 
         let (mut window, events) = Self::create_window(&glfw);
 
+        let (width, height) = window.get_size();
+
+        window.set_cursor_mode(CursorMode::Disabled);
+        window.set_cursor_pos(width as f64 / 2.0, height as f64 / 2.0);
+
         let gl = Gl::load_with(|s| window.get_proc_address(s) as *const std::os::raw::c_void);
         Self {
             glfw,
@@ -63,7 +72,7 @@ impl Rustcraft {
 
     /// Create a new `GLFW` window with a title
     fn create_window(glfw: &Glfw) -> (Window, Receiver<(f64, WindowEvent)>) {
-        let (mut window, events) = glfw.create_window(1024, 768, "", glfw::WindowMode::Windowed)
+        let (mut window, events) = glfw.create_window(1080, 720, "", glfw::WindowMode::Windowed)
             .expect("Failed to create window.");
 
         window.make_current();
@@ -86,14 +95,14 @@ impl Rustcraft {
         let cube_vertices: [f32; 40] = [
             // front
             -1.0, -1.0,  1.0, 0.0, 0.0,
-             1.0, -1.0,  1.0, 0.0, 0.0,
-             1.0,  1.0,  1.0, 0.0, 0.0,
-            -1.0,  1.0,  1.0, 0.0, 0.0,
+             1.0, -1.0,  1.0, 1.0, 0.0,
+             1.0,  1.0,  1.0, 1.0, 1.0,
+            -1.0,  1.0,  1.0, 0.0, 1.0,
             // back
             -1.0, -1.0, -1.0, 0.0, 0.0,
-             1.0, -1.0, -1.0, 0.0, 0.0,
-             1.0,  1.0, -1.0, 0.0, 0.0,
-            -1.0,  1.0, -1.0, 0.0, 0.0,
+             1.0, -1.0, -1.0, 1.0, 0.0,
+             1.0,  1.0, -1.0, 1.0, 1.0,
+            -1.0,  1.0, -1.0, 0.0, 1.0,
         ];
 
         let cube_indices: [u32; 36] = [
@@ -154,7 +163,8 @@ impl Rustcraft {
         let renderer = Renderer::new(&self.gl);
 
         while !self.window.should_close() {
-            let time = self.glfw.get_time();
+            let time = f32::from_f64(self.glfw.get_time()).unwrap();
+
             let time_step = TimeStep(time - self.last_frame_time);
             self.last_frame_time = time;
 
@@ -175,9 +185,17 @@ impl Rustcraft {
 
             // Poll for and process events
             self.glfw.poll_events();
+            input::handleMouseInput(&mut self.window, &mut camera);
+            input::handleKeyInput(time_step, &self.window, &mut camera);
 
             for (_, event) in glfw::flush_messages(&self.events) {
-                match event {
+
+                if let glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) = event {
+                    self.window.set_should_close(true);
+                    return;
+                }
+
+                /*match event {
                     glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
                         self.window.set_should_close(true)
                     },
@@ -206,7 +224,7 @@ impl Rustcraft {
                         camera.set_offset(Vector3::new(0.2, 0.0, 0.0))
                     },
                     _ => {},
-                }
+                }*/
             }
         }
     }

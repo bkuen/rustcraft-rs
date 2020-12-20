@@ -3,6 +3,8 @@
 use cgmath::{Vector3, Matrix4, Zero, InnerSpace, Point3, EuclideanSpace, Rad};
 use std::ops::{Deref, DerefMut};
 
+const WORLD_UP: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
+
 /// Camera
 ///
 /// The basic structure of a camera
@@ -95,6 +97,21 @@ impl Camera {
         self.roll
     }
 
+    /// Returns the look of the camera
+    pub fn look(&self) -> Vector3<f32> {
+        self.look
+    }
+
+    /// Returns the right of the camera
+    pub fn right(&self) -> Vector3<f32> {
+        self.right
+    }
+
+    /// Returns the up of the camera
+    pub fn up(&self) -> Vector3<f32> {
+        self.up
+    }
+
     /// Returns the view matrix of the camera
     pub fn view_matrix(&self) -> &Matrix4<f32> {
         &self.view_matrix
@@ -159,16 +176,29 @@ impl Camera {
     ///
     /// # Argument
     ///
-    /// * `pitch` - The pitch angle by which the camera
-    /// should be rotated.
     /// * `yaw` - The yaw angle by which the camera
+    /// should be rotated.
+    /// * `pitch` - The pitch angle by which the camera
     /// should be rotated.
     /// * `roll` - The roll angle by which the camera
     /// should be rotated.
-    pub fn rotate(&mut self, pitch: f32, yaw: f32, roll: f32) {
-        self.rotate_pitch(pitch);
-        self.rotate_yaw(yaw);
-        self.rotate_roll(roll);
+    pub fn rotate(&mut self, yaw: f32, pitch: f32, roll: f32) {
+        self.pitch += pitch.to_radians().clamp(
+            -std::f32::consts::PI / 2.0 + 0.1,
+             std::f32::consts::PI / 2.0 - 0.1,
+        );
+        self.yaw += yaw.to_radians();
+        self.roll += roll.to_radians();
+
+        self.look.x = self.pitch.cos() * self.yaw.sin();
+        self.look.y = self.pitch.sin();
+        self.look.z = self.pitch.cos() * self.yaw.cos();
+
+        self.look = self.look.normalize();
+        self.right = self.look.cross(WORLD_UP).normalize();
+        self.up = self.right.cross(self.look).normalize();
+
+        self.calc_view_matrix();
     }
 
     /// Rotates the camera by the given pitch angle.
@@ -248,7 +278,7 @@ impl Default for PerspectiveCamera {
         let mut camera = Self {
             camera: Camera::default(),
             fov: 45.0,
-            aspect_ratio: (1024 / 768) as f32,
+            aspect_ratio: (180 / 720) as f32,
             near_plane: 0.1,
             far_plane: 100.0,
             proj_matrix: Matrix4::zero(),

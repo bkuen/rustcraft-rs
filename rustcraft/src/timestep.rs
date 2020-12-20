@@ -6,37 +6,38 @@ use std::ops::{Add, Sub};
 ///
 /// A `TimeStep` represents the current frame time
 /// of the game loop.
-pub struct TimeStep(pub f64);
+#[derive(Copy, Clone)]
+pub struct TimeStep(pub f32);
 
-impl Add<f64> for TimeStep {
+impl Add<f32> for TimeStep {
     type Output = TimeStep;
 
-    fn add(self, rhs: f64) -> Self::Output {
+    fn add(self, rhs: f32) -> Self::Output {
         TimeStep(self.0 + rhs)
     }
 }
 
-impl Sub<f64> for TimeStep {
+impl Sub<f32> for TimeStep {
     type Output = TimeStep;
 
-    fn sub(self, rhs: f64) -> Self::Output {
+    fn sub(self, rhs: f32) -> Self::Output {
         TimeStep(self.0 - rhs)
     }
 }
 
 impl TimeStep {
     /// Creates a new time step
-    pub fn new(time_step: f64) -> Self {
+    pub fn new(time_step: f32) -> Self {
         Self(time_step)
     }
 
     /// Returns the time step in seconds
-    pub fn seconds(&self) -> f64 {
+    pub fn seconds(&self) -> f32 {
         self.0
     }
 
     /// Returns the time step in milliseconds
-    pub fn milliseconds(&self) -> f64 {
+    pub fn milliseconds(&self) -> f32 {
         self.0 * 1000.0
     }
 }
