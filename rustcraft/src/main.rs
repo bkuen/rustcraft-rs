@@ -9,7 +9,7 @@ use crate::graphics::shader::{ShaderProgram};
 use crate::graphics::renderer::Renderer;
 use crate::graphics::texture::Texture;
 use crate::resources::Resources;
-use cgmath::{Vector4, Matrix4, SquareMatrix, Vector3};
+use cgmath::{Matrix4, Vector3};
 use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint, CursorMode};
 use std::mem::size_of;
 use std::path::Path;
@@ -194,8 +194,8 @@ impl Rustcraft {
             self.glfw.poll_events();
 
             // Handle player input
-            input::handleMouseInput(&mut self.window, &mut camera);
-            input::handleKeyInput(time_step, &self.window, &mut camera);
+            input::handle_mouse_input(&mut self.window, &mut camera);
+            input::handle_key_input(time_step, &self.window, &mut camera);
 
             for (_, event) in glfw::flush_messages(&self.events) {
 

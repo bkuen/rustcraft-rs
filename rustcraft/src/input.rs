@@ -2,8 +2,7 @@
 
 use crate::camera::PerspectiveCamera;
 use crate::timestep::TimeStep;
-use glfw::{WindowEvent, Key, Action, Window};
-use cgmath::Vector3;
+use glfw::{Key, Action, Window};
 use cgmath::num_traits::FromPrimitive;
 
 /// The default mouse speed
@@ -16,7 +15,7 @@ const MOUSE_SENSITIVITY: f32 = 0.25;
 const ZOOM_SENSITIVITY: f32 = -3.0;
 
 
-pub fn handleKeyInput(timestep: TimeStep, window: &Window, camera: &mut PerspectiveCamera) {
+pub fn handle_key_input(timestep: TimeStep, window: &Window, camera: &mut PerspectiveCamera) {
 
     // Camera Movement
     let look = camera.look();
@@ -45,7 +44,7 @@ pub fn handleKeyInput(timestep: TimeStep, window: &Window, camera: &mut Perspect
     }
 }
 
-pub fn handleMouseInput(window: &mut Window, camera: &mut PerspectiveCamera) {
+pub fn handle_mouse_input(window: &mut Window, camera: &mut PerspectiveCamera) {
     let (width, height) = window.get_size();
     let (mouse_x, mouse_y) = window.get_cursor_pos();
     camera.rotate(
