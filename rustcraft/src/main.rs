@@ -7,9 +7,9 @@ use crate::graphics::buffer::{VertexBuffer, IndexBuffer, VertexArray, VertexBuff
 use crate::graphics::gl::{Gl, gl, types::*};
 use crate::graphics::shader::{ShaderProgram};
 use crate::graphics::renderer::Renderer;
-use crate::graphics::texture::Texture;
+use crate::graphics::texture::{Texture, TextureAtlas};
 use crate::resources::Resources;
-use cgmath::{Matrix4, Vector3};
+use cgmath::{Matrix4, Vector3, Vector2};
 use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint, CursorMode};
 use std::mem::size_of;
 use std::path::Path;
@@ -158,8 +158,9 @@ impl Rustcraft {
 
         let ib = IndexBuffer::new(&self.gl, cube_indices.as_ptr(), 36);
 
-        let texture = Texture::from_resource(&self.gl, &resources, "textures/grass.png");
-        texture.bind(None);
+        let texture = Texture::from_resource(&self.gl, &resources, "textures/textures.png");
+        let atlas = TextureAtlas::from_texture(texture, Vector2::new(16.0, 16.0));
+        atlas.bind(None);
         shader_program.set_uniform_1i("u_Texture", 0);
 
         va.unbind();

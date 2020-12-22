@@ -5,6 +5,8 @@ use crate::resources::Resources;
 use image::GenericImageView;
 use std::os::raw::c_void;
 use std::path::PathBuf;
+use std::ops::{Deref, DerefMut};
+use cgmath::Vector2;
 
 /// Texture
 ///
@@ -129,5 +131,98 @@ impl Texture {
 impl Drop for Texture {
     fn drop(&mut self) {
         unsafe { self.gl.DeleteTextures(1, &self.id); }
+    }
+}
+
+/// SubTexture
+///
+/// A `SubTexture` represents one sprite of a texture atlas
+pub struct SubTexture<'a> {
+    /// The texture atlas this sub texture is referring
+    tex_atlas: &'a TextureAtlas,
+    /// The texture coordinates of this sub texture
+    tex_coords: [Vector2<f32>; 4]
+}
+
+impl<'a> SubTexture<'a> {
+
+    /// Creates a new sub texture from min and max coordinates
+    ///
+    /// # Arguments
+    ///
+    /// * `tex_atlas` - A reference to a texture atlas
+    /// * `min` - The min coordinate of the sub texture
+    /// * `max` - The max coordinate of the sub texture
+    fn new(tex_atlas: &'a TextureAtlas, min: Vector2<f32>, max: Vector2<f32>) -> Self {
+        let tex_coords: [Vector2<f32>; 4] = [
+            Vector2::new(min.x, min.y),
+            Vector2::new(max.x, min.y),
+            Vector2::new(max.x, max.y),
+            Vector2::new(min.x, max.y),
+        ];
+        Self {
+            tex_atlas,
+            tex_coords,
+        }
+    }
+}
+
+/// TextureAtlas
+///
+/// A `TextureAtlas` combines multiple textures in just one file.
+/// Therefore, only one texture needs to be load with `OpenGL`.
+/// With this in place, the texture coordinates for each sprite
+/// could be calculated using the `total width/height` and `sprite
+/// width/length`
+pub struct TextureAtlas {
+    /// The underlying texture
+    texture: Texture,
+    /// The size of each sprite in the texture atlas
+    sprite_size: Vector2<f32>,
+}
+
+impl Deref for TextureAtlas {
+    type Target = Texture;
+
+    fn deref(&self) -> &Self::Target {
+        &self.texture
+    }
+}
+
+impl DerefMut for TextureAtlas {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.texture
+    }
+}
+
+impl TextureAtlas {
+    /// Creates a new texture atlas from a given texture
+    ///
+    /// # Arguments
+    ///
+    /// * `texture` - The underlying texture
+    /// * `sprite_size` - The size of each sprite
+    pub fn from_texture(texture: Texture, sprite_size: Vector2<f32>) -> Self {
+        return Self {
+            texture,
+            sprite_size,
+        }
+    }
+
+    /// Returns the sub texture within the given coords
+    ///
+    /// # Argument
+    ///
+    /// * `coords` - The relative coordinates to a sub texture of the atlas
+    pub fn sub_texture(&self, coords: Vector2<f32>) -> SubTexture {
+        let min: Vector2<f32> = Vector2::new(
+            (coords.x * self.sprite_size.x) / self.width as f32,
+            (coords.y * self.sprite_size.y) / self.height as f32,
+        );
+        let max: Vector2<f32> = Vector2::new(
+            ((coords.x + 1.0) * self.sprite_size.x) / self.width as f32,
+            ((coords.y + 1.0) * self.sprite_size.y) / self.height as f32,
+        );
+        SubTexture::new(&self, min, max)
     }
 }
