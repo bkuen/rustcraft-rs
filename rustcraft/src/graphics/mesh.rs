@@ -9,17 +9,17 @@ use std::mem::size_of;
 ///
 /// A mesh holds the vertex positions, texture coords
 /// and indices which will be rendered to the screen
-struct Mesh {
-    vertex_positions: Vec<f32>,
-    tex_coords: Vec<f32>,
-    indices: Vec<u32>,
+pub struct Mesh {
+    pub vertex_positions: Vec<f32>,
+    pub tex_coords: Vec<f32>,
+    pub indices: Vec<u32>,
 }
 
 /// Model
 ///
 /// A model is built up by a mesh and it is generating the
 /// required buffers for an `OpenGL` render call
-struct Model {
+pub struct Model {
     /// An `OpenGL` instance
     gl: Gl,
     /// The vertex array of the model
@@ -38,7 +38,7 @@ impl Model {
     /// # Arguments
     ///
     /// * `mesh` - A mesh instance
-    fn from_mesh(gl: &Gl, mesh: &Mesh) -> Self {
+    pub fn from_mesh(gl: &Gl, mesh: &Mesh) -> Self {
         let va = VertexArray::new(gl);
         let vb = VertexBuffer::new(gl, mesh.vertex_positions.as_ptr() as *const GLvoid, (mesh.vertex_positions.len() * size_of::<f32>()) as isize);
         let ib = IndexBuffer::new(gl, mesh.indices.as_ptr(), mesh.indices.len());
