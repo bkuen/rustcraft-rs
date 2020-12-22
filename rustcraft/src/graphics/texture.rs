@@ -141,7 +141,7 @@ pub struct SubTexture<'a> {
     /// The texture atlas this sub texture is referring
     tex_atlas: &'a TextureAtlas,
     /// The texture coordinates of this sub texture
-    tex_coords: [Vector2<f32>; 4]
+    tex_coords: [f32; 8]
 }
 
 impl<'a> SubTexture<'a> {
@@ -154,16 +154,21 @@ impl<'a> SubTexture<'a> {
     /// * `min` - The min coordinate of the sub texture
     /// * `max` - The max coordinate of the sub texture
     fn new(tex_atlas: &'a TextureAtlas, min: Vector2<f32>, max: Vector2<f32>) -> Self {
-        let tex_coords: [Vector2<f32>; 4] = [
-            Vector2::new(min.x, min.y),
-            Vector2::new(max.x, min.y),
-            Vector2::new(max.x, max.y),
-            Vector2::new(min.x, max.y),
+        let tex_coords= [
+            min.x, min.y,
+            max.x, min.y,
+            max.x, max.y,
+            min.x, max.y,
         ];
         Self {
             tex_atlas,
             tex_coords,
         }
+    }
+
+    /// Returns the texture coords as a `[f32; 8]`
+    pub fn coords(&self) -> &[f32; 8] {
+       &self.tex_coords
     }
 }
 
