@@ -142,7 +142,7 @@ pub struct ShaderProgram {
     /// An `OpenGL` instance
     gl: Gl,
     /// The uniform cache
-    uniform_cache: HashMap<String, i32>,
+    uniform_cache: HashMap<CString, i32>,
 }
 
 impl ShaderProgram {
@@ -252,7 +252,6 @@ impl ShaderProgram {
         unsafe { self.gl.Uniform1f(location, v); }
     }
 
-
     /// Sets a uniform of four f32
     pub fn set_uniform_4f(&mut self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
         let location = self.uniform_location(name);
@@ -268,15 +267,20 @@ impl ShaderProgram {
     /// Gets the uniform location of a certain name
     /// if it exists. Otherwise it would return `None`.
     pub fn uniform_location(&mut self, name: &str) -> i32 {
-        if let Some(location) = self.uniform_cache.get(name.into()) {
-            return *location;
+        let c_name = CString::new(name).unwrap();
+        if let Some(location) = self.uniform_cache.get(&c_name) {
+            if *location != -1 {
+                return *location;
+            }
         }
 
-        let location = unsafe { self.gl.GetUniformLocation(self.id, name.as_ptr() as *const i8) };
-        self.uniform_cache.insert(name.into(), location);
+        let location = unsafe { self.gl.GetUniformLocation(self.id, c_name.as_ptr() as *const i8) };
+        self.uniform_cache.insert(c_name, location);
+
         if location == -1 {
             println!("Warning: uniform {} doesn't exist!", name);
         }
+
         location
     }
 
