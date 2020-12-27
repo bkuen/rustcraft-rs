@@ -39,17 +39,21 @@ impl Model {
     ///
     /// * `mesh` - A mesh instance
     pub fn from_mesh(gl: &Gl, mesh: &Mesh) -> Self {
-        let va = VertexArray::new(gl);
-        let vb = VertexBuffer::new(gl, mesh.vertex_positions.as_ptr() as *const GLvoid, (mesh.vertex_positions.len() * size_of::<f32>()) as isize);
-        let ib = IndexBuffer::new(gl, mesh.indices.as_ptr(), mesh.indices.len());
+        let mut va = VertexArray::new(gl);
+        let vb_vertex_positions = VertexBuffer::new(gl, mesh.vertex_positions.as_ptr() as *const GLvoid, mesh.vertex_positions.len() as isize * size_of::<f32>() as isize);
+        let vb_tex_coords = VertexBuffer::new(gl, mesh.tex_coords.as_ptr() as *const GLvoid, mesh.tex_coords.len() as isize * size_of::<f32>() as isize);
 
         let mut buffer_layout = VertexBufferLayout::new();
         buffer_layout.push_f32(3);
+        va.add_buffer(&vb_vertex_positions, &buffer_layout);
+
+        let mut buffer_layout = VertexBufferLayout::new();
         buffer_layout.push_f32(2);
+        va.add_buffer(&vb_tex_coords, &buffer_layout);
 
-        va.add_buffer(&vb, &buffer_layout);
+        let ib = IndexBuffer::new(gl, mesh.indices.as_ptr(), mesh.indices.len());
 
-        let buffers = vec![vb];
+        let buffers = vec![vb_vertex_positions, vb_tex_coords];
 
         Self {
             va,
