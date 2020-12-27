@@ -3,26 +3,27 @@
 
 #![feature(clamp)]
 
-use crate::graphics::buffer::{VertexBuffer, IndexBuffer, VertexArray, VertexBufferLayout};
-use crate::graphics::gl::{Gl, gl, types::*};
-use crate::graphics::shader::{ShaderProgram};
-use crate::graphics::renderer::Renderer;
-use crate::graphics::texture::{Texture, TextureAtlas};
-use crate::resources::Resources;
-use cgmath::{Matrix4, Vector3, Vector2};
-use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint, CursorMode};
-use std::mem::size_of;
-use std::path::Path;
-use std::sync::mpsc::Receiver;
-use crate::timestep::TimeStep;
 use crate::camera::PerspectiveCamera;
+use crate::graphics::gl::{Gl, gl};
+use crate::resources::Resources;
+use crate::timestep::TimeStep;
+use crate::world::block::CubeRenderer;
+
+use cgmath::{Vector3};
 use cgmath::num_traits::FromPrimitive;
 
+use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint, CursorMode};
+
+use std::path::Path;
+use std::sync::mpsc::Receiver;
+
 pub mod camera;
+pub mod entity;
 pub mod input;
 pub mod graphics;
 pub mod resources;
 pub mod timestep;
+pub mod world;
 
 /// Rustcraft
 ///
@@ -98,77 +99,12 @@ impl Rustcraft {
             self.gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         }
 
-
-        let cube_vertices: [f32; 40] = [
-            // front
-            -1.0, -1.0,  1.0, 0.0, 0.0,
-             1.0, -1.0,  1.0, 1.0, 0.0,
-             1.0,  1.0,  1.0, 1.0, 1.0,
-            -1.0,  1.0,  1.0, 0.0, 1.0,
-            // back
-            -1.0, -1.0, -1.0, 0.0, 0.0,
-             1.0, -1.0, -1.0, 1.0, 0.0,
-             1.0,  1.0, -1.0, 1.0, 1.0,
-            -1.0,  1.0, -1.0, 0.0, 1.0,
-        ];
-
-        let cube_indices: [u32; 36] = [
-            // front
-            0, 1, 2,
-            2, 3, 0,
-            // right
-            1, 5, 6,
-            6, 2, 1,
-            // back
-            7, 6, 5,
-            5, 4, 7,
-            // left
-            4, 0, 3,
-            3, 7, 4,
-            // bottom
-            4, 5, 1,
-            1, 0, 4,
-            // top
-            3, 2, 6,
-            6, 7, 3,
-        ];
-
         let resources = Resources::from_relative_exe_path(Path::new("res")).unwrap();
         let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 0.0,  5.0));
         camera.set_pos(Vector3::new(0f32, 2f32, 0f32));
         camera.look_at(Vector3::new(0f32, 0f32, -4f32));
 
-        let model = Matrix4::from_translation(Vector3::new(0.0, 0.0, -4.0));
-        let view = camera.view_matrix();
-        let proj = camera.proj_matrix();
-        let mvp = proj * view * model;
-
-        let mut shader_program = ShaderProgram::from_res(&self.gl, &resources, "basic").unwrap();
-        shader_program.enable();
-
-        shader_program.set_uniform_mat4f("u_MVP", &mvp);
-
-        let va = VertexArray::new(&self.gl);
-        let vb = VertexBuffer::new(&self.gl, cube_vertices.as_ptr() as *const GLvoid, 5 * 8 * size_of::<f32>() as isize);
-
-        let mut buffer_layout = VertexBufferLayout::new();
-        buffer_layout.push_f32(3);
-        buffer_layout.push_f32(2);
-        va.add_buffer(&vb, &buffer_layout);
-
-        let ib = IndexBuffer::new(&self.gl, cube_indices.as_ptr(), 36);
-
-        let texture = Texture::from_resource(&self.gl, &resources, "textures/textures.png");
-        let atlas = TextureAtlas::from_texture(texture, Vector2::new(16.0, 16.0));
-        atlas.bind(None);
-        shader_program.set_uniform_1i("u_Texture", 0);
-
-        va.unbind();
-        vb.unbind();
-        ib.unbind();
-        shader_program.disable();
-
-        let renderer = Renderer::new(&self.gl);
+        let mut cube_renderer = CubeRenderer::new(&self.gl, &resources);
 
         while !self.window.should_close() {
             let time = f32::from_f64(self.glfw.get_time()).unwrap();
@@ -176,17 +112,12 @@ impl Rustcraft {
             let time_step = TimeStep(time - self.last_frame_time);
             self.last_frame_time = time;
 
-            // Render here
-            renderer.clear();
+            cube_renderer.add(Vector3::new(0.0, 0.0, 4.0));
+            cube_renderer.add(Vector3::new(0.0, 0.0, 5.0));
 
-            shader_program.enable();
-            let view = camera.view_matrix();
-            let proj = camera.proj_matrix();
-            let mvp = proj * view * model;
-            shader_program.set_uniform_mat4f("u_MVP", &mvp);
-            shader_program.disable();
-
-            renderer.draw(&va, &ib, &mut shader_program);
+            // Render scene
+            cube_renderer.clear();
+            cube_renderer.render(&camera);
 
             // Swap front and back buffers
             self.window.swap_buffers();
