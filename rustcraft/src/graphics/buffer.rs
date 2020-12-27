@@ -187,8 +187,6 @@ impl VertexBufferLayout {
     pub fn push<T: ?Sized>(&mut self, count: i32, normalized: u8) {
         let element_type: GLenum;
 
-        println!("Type: {}", type_name::<T>());
-
         match type_name::<T>() {
             "f32" => element_type = gl::FLOAT,
             "u32" => element_type = gl::UNSIGNED_INT,
@@ -240,6 +238,8 @@ pub struct VertexArray {
     gl: Gl,
     /// The id of the `VertexArray`
     id: GLuint,
+    /// The buffer count
+    buffer_count: u8,
 }
 
 impl VertexArray {
@@ -258,20 +258,22 @@ impl VertexArray {
         VertexArray {
             id: vao,
             gl: gl.clone(),
+            buffer_count: 0,
         }
     }
 
     /// Add a buffer to the vertex array
-    pub fn add_buffer(&self, vb: &VertexBuffer, layout: &VertexBufferLayout) {
+    pub fn add_buffer(&mut self, vb: &VertexBuffer, layout: &VertexBufferLayout) {
         let mut offset = 0;
 
         self.bind();
         vb.bind();
-        layout.elements().enumerate().for_each(|(i, element) | unsafe {
-            let index = i as u32;
+        layout.elements().for_each(|element | unsafe {
+            let index = self.buffer_count as u32;
             self.gl.EnableVertexAttribArray(index);
             self.gl.VertexAttribPointer(index, element.count, element.element_type, element.normalized, layout.stride(), offset as *const gl::types::GLvoid);
             offset += element.count * VertexBufferElement::size_of_opengl_type(element.element_type);
+            self.buffer_count += 1;
         });
     }
 
