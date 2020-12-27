@@ -12,7 +12,7 @@ const MOVE_SPEED: f32 = 4.0;
 const MOUSE_SENSITIVITY: f32 = 0.25;
 
 /// The default zoom sensitivity
-const ZOOM_SENSITIVITY: f32 = -3.0;
+const _ZOOM_SENSITIVITY: f32 = -3.0;
 
 
 pub fn handle_key_input(timestep: TimeStep, window: &Window, camera: &mut PerspectiveCamera) {
