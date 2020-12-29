@@ -25,6 +25,15 @@ pub mod resources;
 pub mod timestep;
 pub mod world;
 
+struct WindowProps {
+    height: i32,
+    width: i32,
+    fullscreen: bool,
+    vsync: bool,
+    polygon_mode: bool,
+    title: &'static str,
+}
+
 /// Rustcraft
 ///
 /// The `Rustcraft` struct represents the main
@@ -40,6 +49,8 @@ struct Rustcraft {
     events: Receiver<(f64, WindowEvent)>,
     /// A `GLFW` window,
     window: Window,
+    /// The window properties
+    window_props: WindowProps,
     /// The last frame time
     last_frame_time: f32,
 }
@@ -54,7 +65,15 @@ impl Rustcraft {
         glfw.window_hint(glfw::WindowHint::ContextVersionMinor(3));
         glfw.window_hint(glfw::WindowHint::OpenGlProfile(OpenGlProfileHint::Core));
 
-        let (mut window, events) = Self::create_window(&glfw);
+        let window_props = WindowProps {
+            width: 1080,
+            height: 720,
+            fullscreen: false,
+            vsync: false,
+            polygon_mode: false,
+            title: "Rustcraft v0.1.0"
+        };
+        let (mut window, events) = Self::create_window(&glfw, &window_props);
 
         let (width, height) = window.get_size();
 
@@ -74,13 +93,14 @@ impl Rustcraft {
             gl,
             events,
             window,
+            window_props,
             last_frame_time: 0.0,
         }
     }
 
     /// Create a new `GLFW` window with a title
-    fn create_window(glfw: &Glfw) -> (Window, Receiver<(f64, WindowEvent)>) {
-        let (mut window, events) = glfw.create_window(1080, 720, "", glfw::WindowMode::Windowed)
+    fn create_window(glfw: &Glfw, props: &WindowProps) -> (Window, Receiver<(f64, WindowEvent)>) {
+        let (mut window, events) = glfw.create_window(props.width as u32, props.height as u32, props.title, glfw::WindowMode::Windowed)
             .expect("Failed to create window.");
 
         window.make_current();
@@ -133,10 +153,20 @@ impl Rustcraft {
 
                 if let glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) = event {
                     self.window.set_should_close(true);
-                    return;
+                }
+
+                if let glfw::WindowEvent::Key(Key::F5, _, Action::Press, _) = event {
+                    self.window_props.polygon_mode = !self.window_props.polygon_mode;
+                    if self.window_props.polygon_mode {
+                        unsafe { self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::LINE); }
+                    } else {
+                        unsafe { self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::FILL); }
+                    }
                 }
 
                 if let glfw::WindowEvent::FramebufferSize(width, height) = event {
+                    self.window_props.width = width;
+                    self.window_props.height = height;
                     unsafe { self.gl.Viewport(0, 0, width, height); }
                     camera.set_aspect_ratio((width / height) as f32);
                 }
