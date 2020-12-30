@@ -9,13 +9,14 @@ use crate::resources::Resources;
 use crate::timestep::TimeStep;
 use crate::world::block::CubeRenderer;
 
-use cgmath::{Vector3};
+use cgmath::{Vector3, Vector2};
 use cgmath::num_traits::FromPrimitive;
 
 use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint, CursorMode};
 
 use std::path::Path;
 use std::sync::mpsc::Receiver;
+use crate::world::chunk::ChunkRenderer;
 
 pub mod camera;
 pub mod entity;
@@ -120,11 +121,11 @@ impl Rustcraft {
         }
 
         let resources = Resources::from_relative_exe_path(Path::new("res")).unwrap();
-        let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 0.0,  5.0));
-        camera.set_pos(Vector3::new(0f32, 2f32, 0f32));
-        camera.look_at(Vector3::new(0f32, 0f32, -4f32));
+        let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 34.0,  0.0));
+        camera.rotate(45.0, -30.0, 0.0);
 
-        let mut cube_renderer = CubeRenderer::new(&self.gl, &resources);
+        // let mut cube_renderer = CubeRenderer::new(&self.gl, &resources);
+        let mut chunk_renderer: ChunkRenderer = ChunkRenderer::new(&self.gl, &resources);
 
         while !self.window.should_close() {
             let time = f32::from_f64(self.glfw.get_time()).unwrap();
@@ -132,12 +133,17 @@ impl Rustcraft {
             let time_step = TimeStep(time - self.last_frame_time);
             self.last_frame_time = time;
 
-            cube_renderer.add(Vector3::new(0.0, 0.0, 4.0));
-            cube_renderer.add(Vector3::new(0.0, 0.0, 5.0));
+            // cube_renderer.add(Vector3::new(0.0, 0.0, 4.0));
+            // cube_renderer.add(Vector3::new(0.0, 0.0, 5.0));
+            //
+            // // Render scene
+            // cube_renderer.clear();
+            // cube_renderer.render(&camera);
 
-            // Render scene
-            cube_renderer.clear();
-            cube_renderer.render(&camera);
+
+            chunk_renderer.add(Vector2::new(0.0, 0.0));
+            chunk_renderer.clear();
+            chunk_renderer.render(&camera);
 
             // Swap front and back buffers
             self.window.swap_buffers();

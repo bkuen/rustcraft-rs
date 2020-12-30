@@ -15,6 +15,16 @@ pub struct Mesh {
     pub indices: Vec<u32>,
 }
 
+impl Default for Mesh {
+    fn default() -> Self {
+        Mesh {
+            vertex_positions: Vec::new(),
+            tex_coords: Vec::new(),
+            indices: Vec::new(),
+        }
+    }
+}
+
 /// Model
 ///
 /// A model is built up by a mesh and it is generating the

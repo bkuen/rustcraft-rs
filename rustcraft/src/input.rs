@@ -29,7 +29,7 @@ pub fn handle_key_input(timestep: TimeStep, window: &Window, camera: &mut Perspe
         camera.set_offset(MOVE_SPEED * timestep.seconds() * -look);
     }
 
-    // Left / Right
+    // LEFT / RIGHT
     if window.get_key(Key::A) == Action::Press {
         camera.set_offset(MOVE_SPEED * timestep.seconds() * -right);
     } else if window.get_key(Key::D) == Action::Press {

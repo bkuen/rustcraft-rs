@@ -6,8 +6,62 @@ use crate::resources::Resources;
 use crate::camera::{PerspectiveCamera};
 use crate::entity::Entity;
 
-use cgmath::{Vector2, Vector3};
+use cgmath::{Vector2, Vector3, Vector4};
 use std::borrow::BorrowMut;
+use std::ops::Index;
+
+pub mod face;
+
+/// Material
+///
+/// A `Material` represents the 'type' of a block
+/// as just one u8
+#[repr(u8)]
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum Material {
+    Air = 0,
+    Grass = 1,
+    Dirt = 2,
+    Stone = 3,
+}
+
+/// BlockTextureCoords
+///
+/// The `BlockTextureCoords` stores the texture coordinates
+/// for the top, bottom and side view of a certain block.
+pub struct BlockTextureCoords {
+    /// The coordinates of the top view
+    top: Vector2<f32>,
+    /// The coordinate of the bottom view
+    bottom: Vector2<f32>,
+    /// The coordinates of the side view
+    side: Vector2<f32>,
+}
+
+/// BlockData
+///
+/// The `BlockData` stores the nature, character and texture
+/// of a certain block
+pub struct BlockData {
+    /// The name of the block
+    name: String,
+    /// The texture coordinates for the top, bottom
+    /// and side view of the block.
+    tex_coords: BlockTextureCoords,
+}
+
+impl BlockData {
+    /// Returns the name of the block
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    /// Returns the texture coordinates for the top, bottom
+    /// and side view of the block.
+    pub fn tex_coords(&self) -> &BlockTextureCoords {
+        &self.tex_coords
+    }
+}
 
 /// CubeRender
 ///
@@ -48,43 +102,13 @@ impl CubeRenderer {
         tex_atlas.unbind();
 
         // Create vertex coordinates
-        let vertex_positions = vec![
-            // Back
-            1.0f32, 0.0, 0.0,
-            0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            1.0, 1.0, 0.0,
-
-            // Front
-            0.0, 0.0, 1.0,
-            1.0, 0.0, 1.0,
-            1.0, 1.0, 1.0,
-            0.0, 1.0, 1.0,
-
-            // Right
-            1.0, 0.0, 1.0,
-            1.0, 0.0, 0.0,
-            1.0, 1.0, 0.0,
-            1.0, 1.0, 1.0,
-
-            // Left
-            0.0, 0.0, 0.0,
-            0.0, 0.0, 1.0,
-            0.0, 1.0, 1.0,
-            0.0, 1.0, 0.0,
-
-            // Top:
-            0.0, 1.0, 1.0,
-            1.0, 1.0, 1.0,
-            1.0, 1.0, 0.0,
-            0.0, 1.0, 0.0,
-
-            // Bottom
-            0.0, 0.0, 0.0,
-            1.0, 0.0, 0.0,
-            1.0, 0.0, 1.0,
-            0.0, 0.0, 1.0,
-        ];
+        let mut vertex_positions = Vec::<f32>::with_capacity(72);
+        vertex_positions.extend(face::BACK.iter());
+        vertex_positions.extend(face::FRONT.iter());
+        vertex_positions.extend(face::RIGHT.iter());
+        vertex_positions.extend(face::LEFT.iter());
+        vertex_positions.extend(face::TOP.iter());
+        vertex_positions.extend(face::BOTTOM.iter());
 
         // Create indices
         let indices = vec![
@@ -206,8 +230,6 @@ impl CubeRenderer {
                     gl::UNSIGNED_INT,
                     std::ptr::null(),
                 );
-
-
             }
         }
 
