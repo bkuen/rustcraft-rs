@@ -6,9 +6,8 @@ use crate::resources::Resources;
 use crate::camera::{PerspectiveCamera};
 use crate::entity::Entity;
 
-use cgmath::{Vector2, Vector3, Vector4};
+use cgmath::{Vector2, Vector3};
 use std::borrow::BorrowMut;
-use std::ops::Index;
 
 pub mod face;
 

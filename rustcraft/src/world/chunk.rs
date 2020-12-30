@@ -1,17 +1,16 @@
-use crate::graphics::mesh::{Mesh, Model};
+
 use cgmath::{Vector3, Vector2};
 use crate::world::block::face::BlockFace;
 use crate::world::block::{Material, face};
-use std::borrow::BorrowMut;
-use std::iter::Enumerate;
-use std::path::Iter;
-use crate::graphics::gl::Gl;
-use crate::graphics::texture::{TextureAtlas, Texture};
-use crate::graphics::shader::ShaderProgram;
 use crate::resources::Resources;
-use crate::gl;
 use crate::camera::PerspectiveCamera;
 use crate::entity::Entity;
+use crate::gl;
+use crate::graphics::gl::Gl;
+use crate::graphics::mesh::{Mesh, Model};
+use crate::graphics::shader::ShaderProgram;
+use crate::graphics::texture::{TextureAtlas, Texture};
+use std::borrow::BorrowMut;
 
 /// The size of each chunk
 const CHUNK_SIZE:usize = 32;
@@ -164,7 +163,7 @@ impl ChunkMesh {
         mesh.vertex_positions.reserve(12);
 
         let mut index = 0;
-        for i in 0..4 {
+        for _i in 0..4 {
             mesh.vertex_positions.push(pos.x as f32 + face[index]);
             mesh.vertex_positions.push(pos.y as f32 + face[index + 1]);
             mesh.vertex_positions.push(pos.z as f32 + face[index + 2]);
@@ -191,11 +190,16 @@ impl ChunkMesh {
 
         // Add texture coords
         mesh.tex_coords.reserve(8);
-        match *face {
-            face::FRONT | face::BACK | face::RIGHT | face::LEFT => mesh.tex_coords.extend_from_slice(tex_side.coords()),
-            face::TOP => mesh.tex_coords.extend_from_slice(tex_top.coords()),
-            face::BOTTOM => mesh.tex_coords.extend_from_slice(tex_bottom.coords()),
-            _ => unreachable!()
+
+        // Match statement is not working anymore: `floating-point types cannot be used in patterns`
+        if *face == face::FRONT || *face == face::BACK || *face == face::RIGHT || *face == face::LEFT {
+            mesh.tex_coords.extend_from_slice(tex_side.coords());
+        } else if *face == face::TOP {
+            mesh.tex_coords.extend_from_slice(tex_top.coords());
+        } else if *face == face::BOTTOM {
+            mesh.tex_coords.extend_from_slice(tex_bottom.coords());
+        } else {
+            unreachable!()
         }
     }
 }

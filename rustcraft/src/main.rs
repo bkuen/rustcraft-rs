@@ -7,7 +7,6 @@ use crate::camera::PerspectiveCamera;
 use crate::graphics::gl::{Gl, gl};
 use crate::resources::Resources;
 use crate::timestep::TimeStep;
-use crate::world::block::CubeRenderer;
 
 use cgmath::{Vector3, Vector2};
 use cgmath::num_traits::FromPrimitive;
@@ -124,7 +123,6 @@ impl Rustcraft {
         let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 34.0,  0.0));
         camera.rotate(45.0, -30.0, 0.0);
 
-        // let mut cube_renderer = CubeRenderer::new(&self.gl, &resources);
         let mut chunk_renderer: ChunkRenderer = ChunkRenderer::new(&self.gl, &resources);
 
         while !self.window.should_close() {
@@ -133,15 +131,9 @@ impl Rustcraft {
             let time_step = TimeStep(time - self.last_frame_time);
             self.last_frame_time = time;
 
-            // cube_renderer.add(Vector3::new(0.0, 0.0, 4.0));
-            // cube_renderer.add(Vector3::new(0.0, 0.0, 5.0));
-            //
-            // // Render scene
-            // cube_renderer.clear();
-            // cube_renderer.render(&camera);
-
-
             chunk_renderer.add(Vector2::new(0.0, 0.0));
+
+            // Render the scene
             chunk_renderer.clear();
             chunk_renderer.render(&camera);
 
