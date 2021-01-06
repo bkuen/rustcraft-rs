@@ -120,7 +120,8 @@ impl Rustcraft {
         }
 
         let resources = Resources::from_relative_exe_path(Path::new("res")).unwrap();
-        let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 34.0,  0.0));
+        // let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 34.0,  0.0));
+        let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 10.0,  0.0));
         camera.rotate(45.0, -30.0, 0.0);
 
         let mut chunk_renderer: ChunkRenderer = ChunkRenderer::new(&self.gl, &resources);

@@ -13,6 +13,7 @@ pub struct Mesh {
     pub vertex_positions: Vec<f32>,
     pub tex_coords: Vec<f32>,
     pub indices: Vec<u32>,
+    pub normals: Vec<f32>,
 }
 
 impl Default for Mesh {
@@ -21,6 +22,7 @@ impl Default for Mesh {
             vertex_positions: Vec::new(),
             tex_coords: Vec::new(),
             indices: Vec::new(),
+            normals: Vec::new(),
         }
     }
 }
@@ -52,6 +54,7 @@ impl Model {
         let mut va = VertexArray::new(gl);
         let vb_vertex_positions = VertexBuffer::new(gl, mesh.vertex_positions.as_ptr() as *const GLvoid, mesh.vertex_positions.len() as isize * size_of::<f32>() as isize);
         let vb_tex_coords = VertexBuffer::new(gl, mesh.tex_coords.as_ptr() as *const GLvoid, mesh.tex_coords.len() as isize * size_of::<f32>() as isize);
+        let vb_normals = VertexBuffer::new(gl, mesh.normals.as_ptr() as *const GLvoid, mesh.normals.len() as isize * size_of::<f32>() as isize);
 
         let mut buffer_layout = VertexBufferLayout::new();
         buffer_layout.push_f32(3);
@@ -61,9 +64,13 @@ impl Model {
         buffer_layout.push_f32(2);
         va.add_buffer(&vb_tex_coords, &buffer_layout);
 
+        let mut buffer_layout = VertexBufferLayout::new();
+        buffer_layout.push_f32(3);
+        va.add_buffer(&vb_normals, &buffer_layout);
+
         let ib = IndexBuffer::new(gl, mesh.indices.as_ptr(), mesh.indices.len());
 
-        let buffers = vec![vb_vertex_positions, vb_tex_coords];
+        let buffers = vec![vb_vertex_positions, vb_tex_coords, vb_normals];
 
         Self {
             va,
@@ -90,6 +97,11 @@ impl Model {
        &self.va
     }
 
+    /// Returns the mutable vertex array of the model
+    pub fn va_mut(&mut self) -> &mut VertexArray {
+        &mut self.va
+    }
+
     /// Returns the index buffer of the model
     pub fn ib(&self) -> &IndexBuffer {
         &self.ib
@@ -100,5 +112,12 @@ impl Model {
     /// This might change in the future.
     pub fn buffers(&self) -> &Vec<VertexBuffer> {
         &self.buffers
+    }
+
+    /// Returns all additional buffers mutably.
+    /// At the moment, only vertex buffers are supported to be stored here.
+    /// This might change in the future.
+    pub fn buffers_mut(&mut self) -> &mut Vec<VertexBuffer> {
+        &mut self.buffers
     }
 }

@@ -16,7 +16,7 @@ pub mod face;
 /// A `Material` represents the 'type' of a block
 /// as just one u8
 #[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Material {
     Air = 0,
     Grass = 1,
@@ -43,16 +43,18 @@ pub struct BlockTextureCoords {
 /// of a certain block
 pub struct BlockData {
     /// The name of the block
-    name: String,
+    name: &'static str,
     /// The texture coordinates for the top, bottom
     /// and side view of the block.
     tex_coords: BlockTextureCoords,
+    /// A block could either be `opaque` (true) or transparent (false)
+    opaque: bool,
 }
 
 impl BlockData {
     /// Returns the name of the block
-    pub fn name(&self) -> &str {
-        self.name.as_str()
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// Returns the texture coordinates for the top, bottom
@@ -148,6 +150,7 @@ impl CubeRenderer {
             vertex_positions,
             tex_coords,
             indices,
+            normals: Vec::new(),
         };
 
         // Create model
