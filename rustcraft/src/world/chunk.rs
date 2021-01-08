@@ -37,25 +37,34 @@ const CHUNK_VOLUME:usize = CHUNK_AREA * CHUNK_HEIGHT;
 /// bytes, each byte represents a certain block material and
 /// refers indirectly to its block data. Hence, only `~65 kilobytes`
 /// are required to represent a whole chunk.
-struct Chunk<'a> {
+struct Chunk {
+    /// An `OpenGL` instance
+    gl: Gl,
+    /// The location of the chunk
+    loc: Vector2<i32>,
     /// The blocks stored in the chunk
     blocks: Box<[Material; CHUNK_VOLUME]>,
-    /// The texture atlas which is used to texture the blocks
-    tex_atlas: &'a TextureAtlas
+    /// The current chunk model
+    model: Option<ChunkModel>,
+    /// A boolean determining whether the chunk model should be recalculated
+    recalculate: bool,
 }
 
-impl<'a> Chunk<'a> {
+impl Chunk {
     /// Creates a new chunk.
     /// By default, this chunk is filled with grass blocks.
     ///
     /// # Arguments
     ///
-    /// * `text_atlas` - The texture atlas which should be used to
-    /// texture the blocks
-    pub fn new(tex_atlas: &'a TextureAtlas) -> Self {
+    /// * `gl` - An `OpenGl` instance
+    /// * `loc` - The location of the chunk
+    pub fn new(gl: &Gl, loc: Vector2<i32>) -> Self {
         Self {
-            tex_atlas,
+            loc,
+            gl: gl.clone(),
             blocks: Box::new([Material::Grass; CHUNK_VOLUME]),
+            model: None,
+            recalculate: true,
         }
     }
 
@@ -73,17 +82,13 @@ impl<'a> Chunk<'a> {
         if let Some(index) = self.index_of(loc) {
             let mut blocks = *self.blocks;
             blocks[index] = material;
+            self.recalculate = true;
         }
     }
 
     /// Returns all blocks of the chunk as `Iter`
     pub fn blocks(&self) -> &[Material; CHUNK_VOLUME] {
         &*self.blocks
-    }
-
-    /// Returns the texture atlas which is used to texture the blocks
-    pub fn tex_atlas(&self) -> &'a TextureAtlas {
-        self.tex_atlas
     }
 
     /// Returns the material of a given chunk
@@ -126,6 +131,13 @@ impl<'a> Chunk<'a> {
             return None
         }
         Some(CHUNK_AREA * loc.y as usize + CHUNK_SIZE * loc.z as usize + loc.x as usize)
+    }
+
+    /// Recalculates the chunk mesh and model
+    fn recalculate_model(&mut self) {
+        let mesh = make_greedy_chunk_mesh(self);
+        let model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
+        self.model = Some(model);
     }
 }
 
@@ -202,7 +214,6 @@ impl ChunkMesh {
         height: i32,
         face: &VoxelFace,
         back_face: bool,
-        tex_atlas: &TextureAtlas,
     ) {
         let mesh = self.mesh.borrow_mut();
 
@@ -353,7 +364,7 @@ impl ChunkRenderer {
         self.tex_atlas.bind(None);
 
         for pos in self.chunk_positions.iter() {
-            let chunk = Chunk::new(&self.tex_atlas);
+            let chunk = Chunk::new(&self.gl, Vector2::new(0, 0));
             let mesh = make_greedy_chunk_mesh(&chunk);
 
             let chunk_model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
@@ -679,7 +690,6 @@ fn make_greedy_chunk_mesh(chunk: &Chunk) -> ChunkMesh {
                                     h as i32,
                                     &mask[n].unwrap(),
                                     back_face,
-                                    chunk.tex_atlas,
                                 );
                             }
 
