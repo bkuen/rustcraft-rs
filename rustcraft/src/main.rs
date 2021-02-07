@@ -16,6 +16,7 @@ use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGl
 use std::path::Path;
 use std::sync::mpsc::Receiver;
 use crate::world::chunk::ChunkRenderer;
+use crate::world::World;
 
 pub mod camera;
 pub mod entity;
@@ -124,7 +125,13 @@ impl Rustcraft {
         let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 10.0,  0.0));
         camera.rotate(45.0, -30.0, 0.0);
 
-        let mut chunk_renderer: ChunkRenderer = ChunkRenderer::new(&self.gl, &resources);
+        let mut world = World::new(&self.gl, &resources);
+        // world.load_chunk(Vector2::new(0, 0));
+        // world.load_chunk(Vector2::new(0, 1));
+        // world.load_chunk(Vector2::new(1, 0));
+        // world.load_chunk(Vector2::new(1, 1));
+
+        // let mut chunk_renderer: ChunkRenderer = ChunkRenderer::new(&self.gl, &resources);
 
         while !self.window.should_close() {
             let time = f32::from_f64(self.glfw.get_time()).unwrap();
@@ -132,11 +139,16 @@ impl Rustcraft {
             let time_step = TimeStep(time - self.last_frame_time);
             self.last_frame_time = time;
 
-            chunk_renderer.add(Vector2::new(0.0, 0.0));
+            world.clear_renderer();
+            world.render(&camera);
 
-            // Render the scene
-            chunk_renderer.clear();
-            chunk_renderer.render(&camera);
+            // for chunk in world.chunks() {
+            //     chunk_renderer.add(Vector2::new(chunk.loc().x as f32, chunk.loc().y as f32));
+            // }
+            //
+            // // Render the scene
+            // chunk_renderer.clear();
+            // chunk_renderer.render(&camera);
 
             // Swap front and back buffers
             self.window.swap_buffers();

@@ -1,4 +1,3 @@
-
 use cgmath::{Vector3, Vector2};
 use crate::world::block::{Material};
 use crate::resources::Resources;
@@ -9,21 +8,22 @@ use crate::graphics::gl::Gl;
 use crate::graphics::mesh::{Mesh, Model};
 use crate::graphics::shader::ShaderProgram;
 use crate::graphics::texture::{TextureAtlas, Texture};
-use std::borrow::BorrowMut;
+use std::borrow::{BorrowMut, Borrow};
 use std::ops::Deref;
 use crate::graphics::buffer::{VertexBufferLayout, VertexBuffer};
 use std::mem::size_of;
 use crate::graphics::gl::types::GLvoid;
+use std::sync::{RwLock, Arc, Mutex};
 
 /// The size of each chunk
-const CHUNK_SIZE:usize = 8;
+pub const CHUNK_SIZE:usize = 8;
 /// The height of each chunk
-const CHUNK_HEIGHT:usize = 8;
+pub const CHUNK_HEIGHT:usize = 8;
 /// The area of each chunk. Usually, chunks have
 /// a squared area.
-const CHUNK_AREA:usize = CHUNK_SIZE * CHUNK_SIZE;
+pub const CHUNK_AREA:usize = CHUNK_SIZE * CHUNK_SIZE;
 /// The volume of each chunk
-const CHUNK_VOLUME:usize = CHUNK_AREA * CHUNK_HEIGHT;
+pub const CHUNK_VOLUME:usize = CHUNK_AREA * CHUNK_HEIGHT;
 
 /// Chunk
 ///
@@ -37,7 +37,7 @@ const CHUNK_VOLUME:usize = CHUNK_AREA * CHUNK_HEIGHT;
 /// bytes, each byte represents a certain block material and
 /// refers indirectly to its block data. Hence, only `~65 kilobytes`
 /// are required to represent a whole chunk.
-struct Chunk {
+pub struct Chunk {
     /// An `OpenGL` instance
     gl: Gl,
     /// The location of the chunk
@@ -45,9 +45,15 @@ struct Chunk {
     /// The blocks stored in the chunk
     blocks: Box<[Material; CHUNK_VOLUME]>,
     /// The current chunk model
-    model: Option<ChunkModel>,
+    model: Arc<Mutex<Option<ChunkModel>>>,
     /// A boolean determining whether the chunk model should be recalculated
     recalculate: bool,
+}
+
+impl PartialEq for Chunk {
+    fn eq(&self, other: &Self) -> bool {
+        self.loc == other.loc
+    }
 }
 
 impl Chunk {
@@ -63,9 +69,18 @@ impl Chunk {
             loc,
             gl: gl.clone(),
             blocks: Box::new([Material::Grass; CHUNK_VOLUME]),
-            model: None,
+            model: Arc::new(Mutex::new(None)),
             recalculate: true,
         }
+    }
+
+    /// Recalculates the chunk mesh and model
+    fn recalculate_model(&self) {
+        let mesh = make_greedy_chunk_mesh(self);
+        let model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
+
+        let mut guard = self.model.lock().unwrap();
+        *guard = Some(model);
     }
 
     /// Places a block to the given location
@@ -84,6 +99,16 @@ impl Chunk {
             blocks[index] = material;
             self.recalculate = true;
         }
+    }
+
+    /// Returns the model of the chunk
+    pub fn model(&self) -> Arc<Mutex<Option<ChunkModel>>> {
+        self.model.clone()
+    }
+
+    /// Returns the location of the chunk
+    pub fn loc(&self) -> &Vector2<i32> {
+        &self.loc
     }
 
     /// Returns all blocks of the chunk as `Iter`
@@ -132,13 +157,6 @@ impl Chunk {
         }
         Some(CHUNK_AREA * loc.y as usize + CHUNK_SIZE * loc.z as usize + loc.x as usize)
     }
-
-    /// Recalculates the chunk mesh and model
-    fn recalculate_model(&mut self) {
-        let mesh = make_greedy_chunk_mesh(self);
-        let model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
-        self.model = Some(model);
-    }
 }
 
 /// ChunkModel
@@ -146,7 +164,7 @@ impl Chunk {
 /// A chunk model is built up by a chunk mesh and it is generating the
 /// required buffers for an `OpenGL` render call to render the specific
 /// chunk
-struct ChunkModel {
+pub struct ChunkModel {
     /// The underlying model
     model: Model,
 }
@@ -185,7 +203,7 @@ impl ChunkModel {
 /// Each chunk will be rendered with a single
 /// mesh. This structs offers methods to add a
 /// block face to the mesh at a certain position.
-struct ChunkMesh {
+pub struct ChunkMesh {
     /// The underlying 'normal' mesh
     mesh: Mesh,
     /// The tile offsets of the mesh
@@ -400,6 +418,53 @@ impl ChunkRenderer {
         self.chunk_positions.clear();
     }
 
+    /// Renders a given chunk
+    ///
+    /// # Arguments
+    ///
+    /// * `chunk` - The chunk which should be rendered to the screen
+    pub fn render_chunk(&self, chunk: &Chunk, camera: &PerspectiveCamera) {
+        if chunk.recalculate {
+            chunk.recalculate_model();
+        }
+
+        let chunk_model = chunk.model().lock().unwrap().take().unwrap();
+
+        let shader_program = self.shader_program.borrow();
+        shader_program.enable();
+        shader_program.set_uniform_1i("u_Texture", 0);
+        self.tex_atlas.bind(None);
+        chunk_model.bind();
+
+        // Create a new entity
+        let ent = Entity::at_pos(Vector3::new(
+            chunk.loc().x as f32 * CHUNK_SIZE as f32,
+            0.0,
+            chunk.loc().y as f32 * CHUNK_SIZE as f32
+        ));
+
+        // Calculate model view projection matrix
+        let model = ent.model_matrix();
+        let view = camera.view_matrix();
+        let proj = camera.proj_matrix();
+        let mvp = proj * view * model;
+        shader_program.set_uniform_mat4f("u_MVP", &mvp);
+
+        // `OpenGL` draw call
+        unsafe {
+            self.gl.DrawElements(
+                gl::TRIANGLES,
+                chunk_model.ib().index_count() as i32,
+                gl::UNSIGNED_INT,
+                std::ptr::null(),
+            );
+        }
+
+        chunk_model.unbind();
+        self.tex_atlas.unbind();
+        shader_program.disable();
+    }
+
     /// Clears the `OpenGL` rendered context
     pub fn clear(&self) {
         unsafe {
@@ -440,7 +505,7 @@ impl Side {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct VoxelFace {
+pub struct VoxelFace {
     side: Side,
     material: Material,
 }

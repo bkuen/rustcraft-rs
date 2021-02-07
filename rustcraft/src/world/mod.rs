@@ -1,2 +1,137 @@
+use std::slice::Iter;
+use crate::world::chunk::{Chunk, ChunkRenderer, CHUNK_SIZE};
+use cgmath::Vector2;
+use crate::graphics::gl::Gl;
+use crate::resources::Resources;
+use crate::camera::PerspectiveCamera;
+
 pub mod block;
 pub mod chunk;
+
+const RENDER_DISTANCE: i32 = 3;
+
+/// World
+///
+/// The world contains all chunks which
+/// are currently loaded from the file
+/// system.
+///
+/// At the moment, chunks are just stored
+/// in memory, this will change in upcoming
+/// releases.
+pub struct World {
+    /// An `OpenGL` instance
+    gl: Gl,
+    /// The chunks of the world which are
+    /// currently loaded from the file system
+    chunks: Vec<Chunk>,
+    /// The chunk renderer which is used to render
+    /// the given chunks to the screen
+    chunk_renderer: ChunkRenderer,
+}
+
+impl World {
+    /// Creates a new world
+    ///
+    /// # Arguments
+    ///
+    /// * `gl` - An `OpenGl` instance
+    /// * `res` - A `Resources` instance
+    pub fn new(gl: &Gl, res: &Resources) -> Self {
+        Self {
+            gl: gl.clone(),
+            chunks: Vec::new(),
+            chunk_renderer: ChunkRenderer::new(gl, res),
+        }
+    }
+
+    /// Loads a chunk from the file system
+    pub fn load_chunk(&mut self, loc: Vector2<i32>) {
+        if self.chunk(&loc).is_none() {
+            self.chunks.push(Chunk::new(&self.gl, loc));
+        }
+    }
+
+    /// Unloads a chunk. Stores the chunk to the
+    /// file system.
+    ///
+    /// # Arguments
+    ///
+    /// * `chunk` - The chunk which should be unloaded
+    pub fn unload_chunk(&mut self, chunk: &Chunk) {
+        let pos = self.chunks.iter().position(|x| x == chunk).unwrap();
+        self.chunks.remove(pos);
+    }
+
+    /// Clears the renderer before a render call
+    pub fn clear_renderer(&self) {
+        self.chunk_renderer.clear();
+    }
+
+    /// Renders the world with a given camera perspective.
+    /// Internally, a "spiral like" loop will be used to render the chunks
+    /// around the player.
+    ///
+    /// At the moment, the render distance is set within the `RENDER_DISTANCE`
+    /// constant.
+    ///
+    /// # Arguments
+    ///
+    /// * `camera` - A perspective camera
+    pub fn render(&mut self, camera: &PerspectiveCamera) {
+
+        let chunk_x = (camera.pos().x / CHUNK_SIZE as f32).floor();
+        let chunk_y = (camera.pos().z / CHUNK_SIZE as f32).floor();
+
+        let distance = RENDER_DISTANCE + 1;
+
+        let (mut x, mut y) = (0.0, 0.0);
+        let (mut dx, mut dy) = (0.0, -1.0);
+        let mut t = distance as f32;
+        for _ in 0..distance*distance {
+
+            if -distance as f32 / 2.0 < x && x <= distance as f32 / 2.0
+                && -distance as f32 / 2.0 < y && y <= distance as f32 / 2.0
+            {
+                // self.chunk_renderer.add(Vector2::new(chunk_x + x, chunk_y + y));
+                // self.chunk_renderer.render(camera);
+                let loc = Vector2::new((chunk_x + x) as i32, (chunk_y + y) as i32);
+                self.load_chunk(loc.clone());
+
+                if let Some(chunk) = self.chunk(&loc) {
+                    self.chunk_renderer.render_chunk(chunk, &camera);
+                }
+            }
+
+            if x == y || (x < 0.0 && x == -y) || (x > 0.0 && x == 1.0-y) {
+                t = dx;
+                dx = -dy;
+                dy = t;
+            }
+
+            x += dx;
+            y += dy;
+        }
+    }
+
+    /// Returns the chunk at a given location
+    ///
+    /// # Arguments
+    ///
+    /// * `loc` - The chunk location
+    ///
+    /// # Safety
+    ///
+    /// This function returns `None` if chunk isn't
+    /// loaded from the file system or haven't generated
+    /// so far.
+    pub fn chunk(&self, loc: &Vector2<i32>) -> Option<&Chunk> {
+        self.chunks.iter().find(|&chunk| chunk.loc() == loc)
+    }
+
+    /// Returns all chunks which are currently
+    /// loaded from the file system
+    pub fn chunks(&self) -> &Vec<Chunk> {
+        &self.chunks
+    }
+}

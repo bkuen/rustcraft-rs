@@ -7,6 +7,8 @@ use std::ffi::{CStr, CString};
 use std::collections::HashMap;
 use crate::resources::Resources;
 use cgmath::{Matrix4, Matrix};
+use std::sync::{Arc, Mutex};
+use std::borrow::BorrowMut;
 
 /// ShaderType
 ///
@@ -142,7 +144,7 @@ pub struct ShaderProgram {
     /// An `OpenGL` instance
     gl: Gl,
     /// The uniform cache
-    uniform_cache: HashMap<CString, i32>,
+    uniform_cache: Arc<Mutex<HashMap<CString, i32>>>,
 }
 
 impl ShaderProgram {
@@ -226,7 +228,7 @@ impl ShaderProgram {
         Ok(ShaderProgram {
             id,
             gl: gl.clone(),
-            uniform_cache: HashMap::new(),
+            uniform_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -241,41 +243,43 @@ impl ShaderProgram {
     }
 
     /// Sets a uniform of i32
-    pub fn set_uniform_1i(&mut self, name: &str, v: i32) {
+    pub fn set_uniform_1i(&self, name: &str, v: i32) {
         let location = self.uniform_location(name);
         unsafe { self.gl.Uniform1i(location, v); }
     }
 
     /// Sets a uniform of f32
-    pub fn set_uniform_1f(&mut self, name: &str, v: f32) {
+    pub fn set_uniform_1f(&self, name: &str, v: f32) {
         let location = self.uniform_location(name);
         unsafe { self.gl.Uniform1f(location, v); }
     }
 
     /// Sets a uniform of four f32
-    pub fn set_uniform_4f(&mut self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
+    pub fn set_uniform_4f(&self, name: &str, v0: f32, v1: f32, v2: f32, v3: f32) {
         let location = self.uniform_location(name);
         unsafe { self.gl.Uniform4f(location, v0, v1, v2, v3); }
     }
 
     /// Sets a uniform of mat4
-    pub fn set_uniform_mat4f(&mut self, name: &str, v: &Matrix4<f32>) {
+    pub fn set_uniform_mat4f(&self, name: &str, v: &Matrix4<f32>) {
         let location = self.uniform_location(name);
         unsafe { self.gl.UniformMatrix4fv(location, 1, gl::FALSE, v.as_ptr()) }
     }
 
     /// Gets the uniform location of a certain name
     /// if it exists. Otherwise it would return `None`.
-    pub fn uniform_location(&mut self, name: &str) -> i32 {
+    pub fn uniform_location(&self, name: &str) -> i32 {
+        let mut uniform_cache = self.uniform_cache.lock().unwrap();
+
         let c_name = CString::new(name).unwrap();
-        if let Some(location) = self.uniform_cache.get(&c_name) {
+        if let Some(location) = uniform_cache.get(&c_name) {
             if *location != -1 {
                 return *location;
             }
         }
 
         let location = unsafe { self.gl.GetUniformLocation(self.id, c_name.as_ptr() as *const i8) };
-        self.uniform_cache.insert(c_name, location);
+        uniform_cache.insert(c_name, location);
 
         if location == -1 {
             println!("Warning: uniform {} doesn't exist!", name);
