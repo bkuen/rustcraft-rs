@@ -13,7 +13,7 @@ use std::ops::Deref;
 use crate::graphics::buffer::{VertexBufferLayout, VertexBuffer};
 use std::mem::size_of;
 use crate::graphics::gl::types::GLvoid;
-use std::sync::{RwLock, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 /// The size of each chunk
 pub const CHUNK_SIZE:usize = 8;

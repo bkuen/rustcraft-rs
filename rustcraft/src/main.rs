@@ -8,14 +8,13 @@ use crate::graphics::gl::{Gl, gl};
 use crate::resources::Resources;
 use crate::timestep::TimeStep;
 
-use cgmath::{Vector3, Vector2};
+use cgmath::{Vector3};
 use cgmath::num_traits::FromPrimitive;
 
 use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGlProfileHint, CursorMode};
 
 use std::path::Path;
 use std::sync::mpsc::Receiver;
-use crate::world::chunk::ChunkRenderer;
 use crate::world::World;
 
 pub mod camera;

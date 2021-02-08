@@ -1,4 +1,3 @@
-use std::slice::Iter;
 use crate::world::chunk::{Chunk, ChunkRenderer, CHUNK_SIZE};
 use cgmath::Vector2;
 use crate::graphics::gl::Gl;

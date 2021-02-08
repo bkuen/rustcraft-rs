@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use crate::resources::Resources;
 use cgmath::{Matrix4, Matrix};
 use std::sync::{Arc, Mutex};
-use std::borrow::BorrowMut;
 
 /// ShaderType
 ///
