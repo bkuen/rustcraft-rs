@@ -8,7 +8,7 @@ use crate::camera::PerspectiveCamera;
 pub mod block;
 pub mod chunk;
 
-const RENDER_DISTANCE: i32 = 3;
+const RENDER_DISTANCE: i32 = 1;
 
 /// World
 ///
@@ -46,9 +46,14 @@ impl World {
     }
 
     /// Loads a chunk from the file system
-    pub fn load_chunk(&mut self, loc: Vector2<i32>) {
-        if self.chunk(&loc).is_none() {
-            self.chunks.push(Chunk::new(&self.gl, loc));
+    ///
+    /// # Arguments
+    ///
+    /// * `loc` - The location of the chunk which is load from
+    /// the file system
+    pub fn load_chunk(&mut self, loc: &Vector2<i32>) {
+        if self.chunk(loc).is_none() {
+            self.chunks.push(Chunk::new(&self.gl, loc.clone()));
         }
     }
 
@@ -57,10 +62,11 @@ impl World {
     ///
     /// # Arguments
     ///
-    /// * `chunk` - The chunk which should be unloaded
-    pub fn unload_chunk(&mut self, chunk: &Chunk) {
-        let pos = self.chunks.iter().position(|x| x == chunk).unwrap();
-        self.chunks.remove(pos);
+    /// * `loc` - The location of the chunk which should be unloaded
+    pub fn unload_chunk(&mut self, loc: &Vector2<i32>) {
+        if let Some(pos) = self.chunks.iter().position(|x| x.loc() == loc) {
+            self.chunks.remove(pos);
+        }
     }
 
     /// Clears the renderer before a render call
@@ -83,7 +89,8 @@ impl World {
         let chunk_x = (camera.pos().x / CHUNK_SIZE as f32).floor();
         let chunk_y = (camera.pos().z / CHUNK_SIZE as f32).floor();
 
-        let distance = RENDER_DISTANCE + 1;
+        let distance = (RENDER_DISTANCE * 2) + 3;
+        let border = (distance / 2) as f32;
 
         let (mut x, mut y) = (0.0, 0.0);
         let (mut dx, mut dy) = (0.0, -1.0);
@@ -96,7 +103,12 @@ impl World {
                 // self.chunk_renderer.add(Vector2::new(chunk_x + x, chunk_y + y));
                 // self.chunk_renderer.render(camera);
                 let loc = Vector2::new((chunk_x + x) as i32, (chunk_y + y) as i32);
-                self.load_chunk(loc.clone());
+
+                if x == -border || x == border || y == -border || y == border {
+                    self.unload_chunk(&loc);
+                } else {
+                    self.load_chunk(&loc);
+                }
 
                 if let Some(chunk) = self.chunk(&loc) {
                     self.chunk_renderer.render_chunk(chunk, &camera);
