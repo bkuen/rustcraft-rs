@@ -7,9 +7,10 @@ Rendering a single chunk
 ![Chunk](https://image.cod3.eu/280-pGPFjYU9)
 ![Greedy Meshing](https://image.cod3.eu/281-9YIqaLNL)
 
-Now, more chunks are being rendered while moving the camera. At the moment, I don't care about unloading chunks and freeing memory if a chunk is out of the render distance.
-![ChunkRendering](https://image.cod3.eu/305-I3vVXC3s)
-![ChunkRenderingMesh](https://image.cod3.eu/306-CXPducC2)
+Now, more chunks are being rendered while moving the camera.
+I implemented some basic perlin noise generation.
+![ChunkRendering](https://image.cod3.eu/309-i7cb6LBU)
+![ChunkRenderingMesh](https://image.cod3.eu/308-n2YAStLI)
 
 ## Installation
 ```bash
