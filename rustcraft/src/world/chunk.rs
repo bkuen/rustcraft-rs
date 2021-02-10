@@ -47,7 +47,7 @@ pub struct Chunk {
     /// The current chunk model
     model: Arc<Mutex<Option<ChunkModel>>>,
     /// A boolean determining whether the chunk model should be recalculated
-    recalculate: bool,
+    recalculate: Arc<Mutex<bool>>,
 }
 
 impl PartialEq for Chunk {
@@ -68,19 +68,25 @@ impl Chunk {
         Self {
             loc,
             gl: gl.clone(),
-            blocks: Box::new([Material::Grass; CHUNK_VOLUME]),
+            blocks: Box::new([Material::Air; CHUNK_VOLUME]),
             model: Arc::new(Mutex::new(None)),
-            recalculate: true,
+            recalculate: Arc::new(Mutex::new(true)),
         }
     }
 
     /// Recalculates the chunk mesh and model
-    fn recalculate_model(&self) {
+    pub fn recalculate_model(&self) {
         let mesh = make_greedy_chunk_mesh(self);
         let model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
 
-        let mut guard = self.model.lock().unwrap();
-        *guard = Some(model);
+        {
+            let mut guard = self.model.lock().unwrap();
+            *guard = Some(model);
+        }
+        {
+            let mut guard = self.recalculate.lock().unwrap();
+            *guard = true;
+        }
     }
 
     /// Places a block to the given location
@@ -95,9 +101,10 @@ impl Chunk {
     /// If the location is out of bounds, the block won't be placed
     pub fn set_block(&mut self, loc: Vector3<i16>, material: Material) {
         if let Some(index) = self.index_of(loc) {
-            let mut blocks = *self.blocks;
-            blocks[index] = material;
-            self.recalculate = true;
+            self.blocks[index] = material;
+
+            let mut guard = self.recalculate.lock().unwrap();
+            *guard = true;
         }
     }
 
@@ -127,8 +134,11 @@ impl Chunk {
     /// If the location is out of bounds, a `None` will be
     /// returned
     pub fn block(&self, loc: Vector3<i16>) -> Option<Material> {
+        // println!("X: {}, Y: {}, Z: {}", loc.x, loc.y, loc.z);
         if let Some(index) = self.index_of(loc) {
-            return Some(self.blocks[index]);
+            let blocks = *self.blocks;
+            // println!("Index: {}, Material: {:?}", index, blocks[index]);
+            return Some(blocks[index]);
         }
         None
     }
@@ -277,22 +287,28 @@ impl ChunkMesh {
         // Add texture coords
         mesh.tex_coords.reserve(8);
 
-        if face.side == Side::NORTH || face.side == Side::SOUTH {
-            mesh.tex_coords.extend_from_slice(&[
-                0.0,          0.0,
-                0.0, width as f32,
-                height as f32, 0.0,
-                height as f32, width as f32,
-            ]);
-        } else {
-            mesh.tex_coords.extend_from_slice(&[
-                0.0,          0.0,
-                width as f32, 0.0,
-                0.0,          height as f32,
-                width as f32, height as f32,
-            ]);
-        }
+        // if face.side == Side::NORTH || face.side == Side::SOUTH {
+        //     mesh.tex_coords.extend_from_slice(&[
+        //         0.0,          0.0,
+        //         0.0, width as f32,
+        //         height as f32, 0.0,
+        //         height as f32, width as f32,
+        //     ]);
+        // } else {
+        //     mesh.tex_coords.extend_from_slice(&[
+        //         0.0,          0.0,
+        //         width as f32, 0.0,
+        //         0.0,          height as f32,
+        //         width as f32, height as f32,
+        //     ]);
+        // }
 
+        mesh.tex_coords.extend_from_slice(&[
+            0.0,          0.0,
+            width as f32, 0.0,
+            0.0,          height as f32,
+            width as f32, height as f32,
+        ]);
 
         // Add normals
         mesh.normals.reserve(12);
@@ -424,7 +440,13 @@ impl ChunkRenderer {
     ///
     /// * `chunk` - The chunk which should be rendered to the screen
     pub fn render_chunk(&self, chunk: &Chunk, camera: &PerspectiveCamera) {
-        if chunk.recalculate {
+        let recalculate;
+        {
+            let guard = chunk.recalculate.lock().unwrap();
+            recalculate = *guard;
+        }
+
+        if recalculate {
             chunk.recalculate_model();
         }
 
@@ -629,7 +651,8 @@ fn make_greedy_chunk_mesh(chunk: &Chunk) -> ChunkMesh {
                          * Here we retrieve two voxel faces for comparison.
                          */
                         face_op = if x[d] >= 0 {
-                            Some(VoxelFace::new(&chunk, Vector3::new(x[0], x[1], x[2]), side))
+                            let vface = VoxelFace::new(&chunk, Vector3::new(x[0], x[1], x[2]), side);
+                            Some(vface)
                         } else { None };
                         face1_op = if x[d] < (CHUNK_SIZE as i16 - 1) {
                             Some(VoxelFace::new(&chunk, Vector3::new(x[0] + q[0], x[1] + q[1], x[2] + q[2]), side))
@@ -673,6 +696,10 @@ fn make_greedy_chunk_mesh(chunk: &Chunk) -> ChunkMesh {
                              * We compute the width
                              */
                             let compute_width = |i, w, mask: &[Option<VoxelFace>; CHUNK_SIZE * CHUNK_HEIGHT]| {
+                                if n + w >= mask.len() {
+                                    return false;
+                                }
+
                                 match mask[n + w] {
                                     Some(face) if i + w < CHUNK_SIZE && face == mask[n].unwrap() => true,
                                     _ => false,
@@ -697,8 +724,8 @@ fn make_greedy_chunk_mesh(chunk: &Chunk) -> ChunkMesh {
 
                                     let compute_height = |h: usize, k: usize, n: usize, mask: &[Option<VoxelFace>; CHUNK_SIZE * CHUNK_HEIGHT]| {
                                         match mask[n + k + h * CHUNK_SIZE] {
-                                            Some(face) if face != mask[n].unwrap() => true,
-                                            _ => false,
+                                            Some(face) => face != mask[n].unwrap(),
+                                            _ => true,
                                         }
                                     };
 
@@ -719,7 +746,10 @@ fn make_greedy_chunk_mesh(chunk: &Chunk) -> ChunkMesh {
                              * Here we check the `opaque` attribute associated with the material of
                              * the `VoxelFace` to ensure that we don't mesh aby culled faces.
                              */
-                            let opaque = true; // mask[n].unwrap().opaque()
+                            let opaque = mask[n].unwrap().material != Material::Air;
+
+                            // println!("Opaque {:?}, {:?}", mask[n].unwrap().material, Material::Air);
+
                             if opaque {
                                 /*
                                  * Add quad

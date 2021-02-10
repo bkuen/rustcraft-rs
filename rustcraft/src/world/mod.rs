@@ -1,11 +1,13 @@
 use crate::world::chunk::{Chunk, ChunkRenderer, CHUNK_SIZE};
-use cgmath::Vector2;
 use crate::graphics::gl::Gl;
 use crate::resources::Resources;
 use crate::camera::PerspectiveCamera;
+use crate::world::terrain_generator::{TerrainGen, SimpleTerrainGen};
+use cgmath::Vector2;
 
 pub mod block;
 pub mod chunk;
+pub mod terrain_generator;
 
 const RENDER_DISTANCE: i32 = 1;
 
@@ -27,6 +29,9 @@ pub struct World {
     /// The chunk renderer which is used to render
     /// the given chunks to the screen
     chunk_renderer: ChunkRenderer,
+    /// The terrain generator which is used to generate
+    /// loading chunks
+    terrain_gen: Box<dyn TerrainGen>,
 }
 
 impl World {
@@ -41,6 +46,7 @@ impl World {
             gl: gl.clone(),
             chunks: Vec::new(),
             chunk_renderer: ChunkRenderer::new(gl, res),
+            terrain_gen: Box::new(SimpleTerrainGen::default()),
         }
     }
 
@@ -52,7 +58,13 @@ impl World {
     /// the file system
     pub fn load_chunk(&mut self, loc: &Vector2<i32>) {
         if self.chunk(loc).is_none() {
-            self.chunks.push(Chunk::new(&self.gl, loc.clone()));
+            let mut chunk = Chunk::new(&self.gl, loc.clone());
+
+            let height_map = self.terrain_gen.gen_heightmap(loc);
+            self.terrain_gen.gen_smooth_terrain(&mut chunk, &height_map);
+
+            self.chunks.push(chunk);
+            // self.chunks.push(Chunk::new(&self.gl, loc.clone()));
         }
     }
 
