@@ -7,6 +7,7 @@ use crate::camera::PerspectiveCamera;
 use crate::graphics::gl::{Gl, gl};
 use crate::resources::Resources;
 use crate::timestep::TimeStep;
+use crate::world::World;
 
 use cgmath::{Vector3};
 use cgmath::num_traits::FromPrimitive;
@@ -15,7 +16,6 @@ use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGl
 
 use std::path::Path;
 use std::sync::mpsc::Receiver;
-use crate::world::World;
 
 pub mod camera;
 pub mod entity;
@@ -141,14 +141,6 @@ impl Rustcraft {
             world.clear_renderer();
             world.render(&camera);
 
-            // for chunk in world.chunks() {
-            //     chunk_renderer.add(Vector2::new(chunk.loc().x as f32, chunk.loc().y as f32));
-            // }
-            //
-            // // Render the scene
-            // chunk_renderer.clear();
-            // chunk_renderer.render(&camera);
-
             // Swap front and back buffers
             self.window.swap_buffers();
 
@@ -171,6 +163,23 @@ impl Rustcraft {
                         unsafe { self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::LINE); }
                     } else {
                         unsafe { self.gl.PolygonMode(gl::FRONT_AND_BACK, gl::FILL); }
+                    }
+                }
+
+                if let glfw::WindowEvent::Key(Key::F12, _, Action::Press, _) = event {
+                    self.window_props.fullscreen = !self.window_props.fullscreen;
+                    if self.window_props.fullscreen {
+                        unsafe {
+                            let monitor = glfw::ffi::glfwGetPrimaryMonitor();
+                            let vid_mode = glfw::ffi::glfwGetVideoMode(monitor);
+                            let (pos_x, pos_y) = self.window.get_pos();
+                            glfw::ffi::glfwSetWindowMonitor(self.window.window_ptr(), monitor, pos_x, pos_y, (*vid_mode).width, (*vid_mode).height, (*vid_mode).refreshRate);
+                        }
+                    } else {
+                        unsafe {
+                            let (pos_x, pos_y) = self.window.get_pos();
+                            glfw::ffi::glfwSetWindowMonitor(self.window.window_ptr(), std::ptr::null_mut(), pos_x, pos_y, 1028, 720, 60);
+                        }
                     }
                 }
 

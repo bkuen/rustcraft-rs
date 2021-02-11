@@ -106,6 +106,7 @@ impl World {
 
         let (mut x, mut y) = (0.0, 0.0);
         let (mut dx, mut dy) = (0.0, -1.0);
+
         let mut t = distance as f32;
         for _ in 0..distance*distance {
 
