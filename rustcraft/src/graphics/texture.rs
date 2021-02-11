@@ -61,7 +61,7 @@ impl Texture {
             width: image.width(),
             height: image.height(),
             bpp: image.color().bits_per_pixel(),
-            local_buffer: image.into_rgba().into_raw(),
+            local_buffer: image.into_rgba8().into_raw(),
         };
 
         // Setup `OpenGL` texture parameters and image data

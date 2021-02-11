@@ -9,7 +9,7 @@ pub mod block;
 pub mod chunk;
 pub mod terrain_generator;
 
-const RENDER_DISTANCE: i32 = 1;
+const RENDER_DISTANCE: i32 = 6;
 
 /// World
 ///
@@ -95,6 +95,7 @@ impl World {
     /// # Arguments
     ///
     /// * `camera` - A perspective camera
+    #[allow(unused_assignments)]
     pub fn render(&mut self, camera: &PerspectiveCamera) {
 
         let chunk_x = (camera.pos().x / CHUNK_SIZE as f32).floor();

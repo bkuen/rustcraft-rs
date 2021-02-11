@@ -85,7 +85,7 @@ impl Chunk {
         }
         {
             let mut guard = self.recalculate.lock().unwrap();
-            *guard = true;
+            *guard = false;
         }
     }
 
@@ -286,23 +286,6 @@ impl ChunkMesh {
 
         // Add texture coords
         mesh.tex_coords.reserve(8);
-
-        // if face.side == Side::NORTH || face.side == Side::SOUTH {
-        //     mesh.tex_coords.extend_from_slice(&[
-        //         0.0,          0.0,
-        //         0.0, width as f32,
-        //         height as f32, 0.0,
-        //         height as f32, width as f32,
-        //     ]);
-        // } else {
-        //     mesh.tex_coords.extend_from_slice(&[
-        //         0.0,          0.0,
-        //         width as f32, 0.0,
-        //         0.0,          height as f32,
-        //         width as f32, height as f32,
-        //     ]);
-        // }
-
         mesh.tex_coords.extend_from_slice(&[
             0.0,          0.0,
             width as f32, 0.0,
@@ -414,8 +397,6 @@ impl ChunkRenderer {
             let mvp = proj * view * model;
             shader_program.set_uniform_mat4f("u_MVP", &mvp);
 
-            // println!("Index count: {}", chunk_model.ib().index_count());
-
             // `OpenGL` draw call
             unsafe {
                 self.gl.DrawElements(
@@ -450,41 +431,41 @@ impl ChunkRenderer {
             chunk.recalculate_model();
         }
 
-        let chunk_model = chunk.model().lock().unwrap().take().unwrap();
+        if let Some(chunk_model) = chunk.model.lock().unwrap().as_ref() {
+            let shader_program = self.shader_program.borrow();
+            shader_program.enable();
+            shader_program.set_uniform_1i("u_Texture", 0);
+            self.tex_atlas.bind(None);
+            chunk_model.bind();
 
-        let shader_program = self.shader_program.borrow();
-        shader_program.enable();
-        shader_program.set_uniform_1i("u_Texture", 0);
-        self.tex_atlas.bind(None);
-        chunk_model.bind();
+            // Create a new entity
+            let ent = Entity::at_pos(Vector3::new(
+                chunk.loc().x as f32 * CHUNK_SIZE as f32,
+                0.0,
+                chunk.loc().y as f32 * CHUNK_SIZE as f32
+            ));
 
-        // Create a new entity
-        let ent = Entity::at_pos(Vector3::new(
-            chunk.loc().x as f32 * CHUNK_SIZE as f32,
-            0.0,
-            chunk.loc().y as f32 * CHUNK_SIZE as f32
-        ));
+            // Calculate model view projection matrix
+            let model = ent.model_matrix();
+            let view = camera.view_matrix();
+            let proj = camera.proj_matrix();
+            let mvp = proj * view * model;
+            shader_program.set_uniform_mat4f("u_MVP", &mvp);
 
-        // Calculate model view projection matrix
-        let model = ent.model_matrix();
-        let view = camera.view_matrix();
-        let proj = camera.proj_matrix();
-        let mvp = proj * view * model;
-        shader_program.set_uniform_mat4f("u_MVP", &mvp);
+            // `OpenGL` draw call
+            unsafe {
+                self.gl.DrawElements(
+                    gl::TRIANGLES,
+                    chunk_model.ib().index_count() as i32,
+                    gl::UNSIGNED_INT,
+                    std::ptr::null(),
+                );
+            }
 
-        // `OpenGL` draw call
-        unsafe {
-            self.gl.DrawElements(
-                gl::TRIANGLES,
-                chunk_model.ib().index_count() as i32,
-                gl::UNSIGNED_INT,
-                std::ptr::null(),
-            );
+            chunk_model.unbind();
+            self.tex_atlas.unbind();
+            shader_program.disable();
         }
-
-        chunk_model.unbind();
-        self.tex_atlas.unbind();
-        shader_program.disable();
     }
 
     /// Clears the `OpenGL` rendered context
