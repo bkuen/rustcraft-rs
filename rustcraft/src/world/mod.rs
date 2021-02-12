@@ -4,6 +4,8 @@ use crate::resources::Resources;
 use crate::camera::PerspectiveCamera;
 use crate::world::terrain_generator::{TerrainGen, SimpleTerrainGen};
 use cgmath::Vector2;
+use std::thread;
+use std::sync::Arc;
 
 pub mod block;
 pub mod chunk;
@@ -31,7 +33,7 @@ pub struct World {
     chunk_renderer: ChunkRenderer,
     /// The terrain generator which is used to generate
     /// loading chunks
-    terrain_gen: Box<dyn TerrainGen>,
+    terrain_gen: Arc<Box<dyn TerrainGen + Send + Sync>>,
 }
 
 impl World {
@@ -46,7 +48,7 @@ impl World {
             gl: gl.clone(),
             chunks: Vec::new(),
             chunk_renderer: ChunkRenderer::new(gl, res),
-            terrain_gen: Box::new(SimpleTerrainGen::default()),
+            terrain_gen: Arc::new(Box::new(SimpleTerrainGen::default()) as Box<dyn TerrainGen + Send + Sync>),
         }
     }
 
@@ -59,12 +61,14 @@ impl World {
     pub fn load_chunk(&mut self, loc: &Vector2<i32>) {
         if self.chunk(loc).is_none() {
             let mut chunk = Chunk::new(&self.gl, loc.clone());
+            self.chunks.push(chunk.clone());
 
-            let height_map = self.terrain_gen.gen_heightmap(loc);
-            self.terrain_gen.gen_smooth_terrain(&mut chunk, &height_map);
-
-            self.chunks.push(chunk);
-            // self.chunks.push(Chunk::new(&self.gl, loc.clone()));
+            let loc = loc.clone();
+            let terrain_gen = self.terrain_gen.clone();
+            thread::spawn(move || {
+                let height_map = terrain_gen.gen_heightmap(&loc);
+                terrain_gen.gen_smooth_terrain(&chunk, &height_map);
+            });
         }
     }
 
@@ -98,6 +102,8 @@ impl World {
     #[allow(unused_assignments)]
     pub fn render(&mut self, camera: &PerspectiveCamera) {
 
+        self.chunk_renderer.prepare();
+
         let chunk_x = (camera.pos().x / CHUNK_SIZE as f32).floor();
         let chunk_y = (camera.pos().z / CHUNK_SIZE as f32).floor();
 
@@ -113,14 +119,14 @@ impl World {
             if -distance as f32 / 2.0 < x && x <= distance as f32 / 2.0
                 && -distance as f32 / 2.0 < y && y <= distance as f32 / 2.0
             {
-                // self.chunk_renderer.add(Vector2::new(chunk_x + x, chunk_y + y));
-                // self.chunk_renderer.render(camera);
                 let loc = Vector2::new((chunk_x + x) as i32, (chunk_y + y) as i32);
 
                 if x == -border || x == border || y == -border || y == border {
                     self.unload_chunk(&loc);
+                    self.chunk_renderer.remove_chunk(&loc);
                 } else {
                     self.load_chunk(&loc);
+                    self.chunk_renderer.add_chunk(&loc);
                 }
 
                 if let Some(chunk) = self.chunk(&loc) {

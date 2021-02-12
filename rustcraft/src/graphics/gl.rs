@@ -5,6 +5,7 @@ use std::ops::Deref;
 
 pub use crate::graphics::bindings::types as types;
 pub use crate::graphics::bindings as gl;
+use std::sync::Arc;
 
 /// Gl
 ///
@@ -20,7 +21,7 @@ pub use crate::graphics::bindings as gl;
 /// the associated types.
 #[derive(Clone)]
 pub struct Gl {
-    inner: Rc<gl::Gl>,
+    inner: Arc<gl::Gl>,
 }
 
 impl Gl {
@@ -30,10 +31,13 @@ impl Gl {
         where F: FnMut(&'static str) -> *const gl::types::GLvoid
     {
         Gl {
-            inner: Rc::new(gl::Gl::load_with(load_fn))
+            inner: Arc::new(gl::Gl::load_with(load_fn))
         }
     }
 }
+
+unsafe impl Send for Gl {}
+unsafe impl Sync for Gl {}
 
 impl Deref for Gl {
     type Target = gl::Gl;

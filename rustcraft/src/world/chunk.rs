@@ -9,16 +9,19 @@ use crate::graphics::mesh::{Mesh, Model};
 use crate::graphics::shader::ShaderProgram;
 use crate::graphics::texture::{TextureAtlas, Texture};
 use std::borrow::{BorrowMut, Borrow};
-use std::ops::Deref;
+use std::ops::{Deref};
 use crate::graphics::buffer::{VertexBufferLayout, VertexBuffer};
 use std::mem::size_of;
 use crate::graphics::gl::types::GLvoid;
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::collections::HashMap;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 /// The size of each chunk
-pub const CHUNK_SIZE:usize = 8;
+pub const CHUNK_SIZE:usize = 16;
 /// The height of each chunk
-pub const CHUNK_HEIGHT:usize = 8;
+pub const CHUNK_HEIGHT:usize = 256;
 /// The area of each chunk. Usually, chunks have
 /// a squared area.
 pub const CHUNK_AREA:usize = CHUNK_SIZE * CHUNK_SIZE;
@@ -37,17 +40,30 @@ pub const CHUNK_VOLUME:usize = CHUNK_AREA * CHUNK_HEIGHT;
 /// bytes, each byte represents a certain block material and
 /// refers indirectly to its block data. Hence, only `~65 kilobytes`
 /// are required to represent a whole chunk.
+#[derive(Clone)]
 pub struct Chunk {
+    inner: Arc<ChunkInner>,
+}
+
+pub struct ChunkInner {
     /// An `OpenGL` instance
     gl: Gl,
     /// The location of the chunk
     loc: Vector2<i32>,
     /// The blocks stored in the chunk
-    blocks: Box<[Material; CHUNK_VOLUME]>,
+    blocks: Mutex<Box<[Material; CHUNK_VOLUME]>>,
     /// The current chunk model
     model: Arc<Mutex<Option<ChunkModel>>>,
     /// A boolean determining whether the chunk model should be recalculated
     recalculate: Arc<Mutex<bool>>,
+}
+
+impl Deref for Chunk {
+    type Target = ChunkInner;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 impl PartialEq for Chunk {
@@ -66,27 +82,32 @@ impl Chunk {
     /// * `loc` - The location of the chunk
     pub fn new(gl: &Gl, loc: Vector2<i32>) -> Self {
         Self {
-            loc,
-            gl: gl.clone(),
-            blocks: Box::new([Material::Air; CHUNK_VOLUME]),
-            model: Arc::new(Mutex::new(None)),
-            recalculate: Arc::new(Mutex::new(true)),
+            inner: Arc::new(ChunkInner {
+                loc,
+                gl: gl.clone(),
+                blocks: Mutex::new(Box::new([Material::Air; CHUNK_VOLUME])),
+                model: Arc::new(Mutex::new(None)),
+                recalculate: Arc::new(Mutex::new(true)),
+            }),
         }
     }
 
     /// Recalculates the chunk mesh and model
     pub fn recalculate_model(&self) {
-        let mesh = make_greedy_chunk_mesh(self);
-        let model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
-
-        {
-            let mut guard = self.model.lock().unwrap();
-            *guard = Some(model);
-        }
-        {
-            let mut guard = self.recalculate.lock().unwrap();
-            *guard = false;
-        }
+        // let chunk = self.clone();
+        // thread::spawn(move || {
+        //     let mesh = make_greedy_chunk_mesh(&chunk);
+        //     let model = ChunkModel::from_chunk_mesh(&chunk.gl, &mesh);
+        //
+        //     {
+        //         let mut guard = chunk.model.lock().unwrap();
+        //         *guard = Some(model);
+        //     }
+        //     {
+        //         let mut guard = chunk.recalculate.lock().unwrap();
+        //         *guard = false;
+        //     }
+        // });
     }
 
     /// Places a block to the given location
@@ -99,12 +120,16 @@ impl Chunk {
     /// # Safety
     ///
     /// If the location is out of bounds, the block won't be placed
-    pub fn set_block(&mut self, loc: Vector3<i16>, material: Material) {
+    pub fn set_block(&self, loc: Vector3<i16>, material: Material) {
         if let Some(index) = self.index_of(loc) {
-            self.blocks[index] = material;
-
-            let mut guard = self.recalculate.lock().unwrap();
-            *guard = true;
+            {
+                let mut guard = self.blocks.lock().unwrap();
+                (*guard)[index] = material;
+            }
+            {
+                let mut guard = self.recalculate.lock().unwrap();
+                *guard = true;
+            }
         }
     }
 
@@ -118,10 +143,10 @@ impl Chunk {
         &self.loc
     }
 
-    /// Returns all blocks of the chunk as `Iter`
-    pub fn blocks(&self) -> &[Material; CHUNK_VOLUME] {
-        &*self.blocks
-    }
+    // /// Returns all blocks of the chunk as `Iter`
+    // pub fn blocks(&self) -> &[Material; CHUNK_VOLUME] {
+    //     &*self.blocks
+    // }
 
     /// Returns the material of a given chunk
     ///
@@ -136,7 +161,8 @@ impl Chunk {
     pub fn block(&self, loc: Vector3<i16>) -> Option<Material> {
         // println!("X: {}, Y: {}, Z: {}", loc.x, loc.y, loc.z);
         if let Some(index) = self.index_of(loc) {
-            let blocks = *self.blocks;
+            let guard = self.blocks.lock().unwrap();
+            let blocks = &*guard;
             // println!("Index: {}, Material: {:?}", index, blocks[index]);
             return Some(blocks[index]);
         }
@@ -155,6 +181,8 @@ impl Chunk {
     /// a `None` will be returned. Negative numbers are just allowed to calculate
     /// neighbored blocks.
     fn index_of(&self, loc: Vector3<i16>) -> Option<usize> {
+        // println!("{:?}", loc);
+
         if !(
             loc.x >= 0 &&
             loc.y >= 0 &&
@@ -329,8 +357,10 @@ pub struct ChunkRenderer {
     tex_atlas: TextureAtlas,
     /// A shader program
     shader_program: ShaderProgram,
-    /// The chunk positions
-    chunk_positions: Vec<Vector2<f32>>,
+    /// A map which internally stores the chunk models
+    chunk_map: HashMap<Vector2<i32>, Option<ChunkModel>>,
+    /// A channel to send/receive chunk mesh updates
+    chunk_update_channel: (Sender<(Vector2<i32>, ChunkMesh)>, Receiver<(Vector2<i32>, ChunkMesh)>)
 }
 
 impl ChunkRenderer {
@@ -354,66 +384,114 @@ impl ChunkRenderer {
         Self {
             shader_program,
             tex_atlas,
-            chunk_positions: Vec::new(),
-            gl: gl.clone()
+            gl: gl.clone(),
+            chunk_map: HashMap::new(),
+            chunk_update_channel: channel(),
         }
     }
 
-    /// Adds a position to the chunk list
-    ///
-    /// # Arguments
-    ///
-    /// * `pos` - The position which should be added to the cube list
-    pub fn add(&mut self, pos: Vector2<f32>) {
-        self.chunk_positions.push(pos);
+    /// Add a chunk
+    pub fn add_chunk(&mut self, loc: &Vector2<i32>) {
+        if !self.chunk_map.contains_key(loc) {
+            self.chunk_map.insert(loc.clone(), None);
+        }
     }
 
-    /// Renders the scene
+    /// Remove a chunk
+    pub fn remove_chunk(&mut self, loc: &Vector2<i32>) {
+        self.chunk_map.remove(loc);
+    }
+
+    /// Recalculates a chunk
     ///
     /// # Arguments
     ///
-    /// * `camera` - A perspective camera
-    pub fn render(&mut self, camera: &PerspectiveCamera) {
-        let shader_program = self.shader_program.borrow_mut();
-        shader_program.enable();
-        shader_program.set_uniform_1i("u_Texture", 0);
-
-        self.tex_atlas.bind(None);
-
-        for pos in self.chunk_positions.iter() {
-            let chunk = Chunk::new(&self.gl, Vector2::new(0, 0));
+    /// * `chunk` - The chunk which should be recalculated
+    pub fn recalculate_chunk(&self, chunk: &Chunk) {
+        {
+            let mut guard = chunk.recalculate.lock().unwrap();
+            *guard = false;
+        }
+        let chunk = chunk.clone();
+        let (tx, _) = &self.chunk_update_channel;
+        let sender = tx.clone();
+        thread::spawn(move || {
             let mesh = make_greedy_chunk_mesh(&chunk);
+            sender.send((chunk.loc.clone(), mesh)).unwrap();
+        });
 
-            let chunk_model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
-            chunk_model.bind();
-
-            // Create a new entity
-            let ent = Entity::at_pos(Vector3::new(pos.x * CHUNK_SIZE as f32, 0.0, pos.y * CHUNK_SIZE as f32));
-
-            // Calculate model view projection matrix
-            let model = ent.model_matrix();
-            let view = camera.view_matrix();
-            let proj = camera.proj_matrix();
-            let mvp = proj * view * model;
-            shader_program.set_uniform_mat4f("u_MVP", &mvp);
-
-            // `OpenGL` draw call
-            unsafe {
-                self.gl.DrawElements(
-                    gl::TRIANGLES,
-                    chunk_model.ib().index_count() as i32,
-                    gl::UNSIGNED_INT,
-                    std::ptr::null(),
-                );
-            }
-
-            chunk_model.unbind();
-        }
-
-        self.tex_atlas.unbind();
-        shader_program.disable();
-        self.chunk_positions.clear();
     }
+
+    /// Prepares the rendering process by reading in some mesh updates
+    /// and inserting them into the chunk map
+    pub fn prepare(&mut self) {
+        let (_, rx) = &self.chunk_update_channel;
+        for (loc, mesh) in rx.try_iter() {
+            let model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
+            self.chunk_map.insert(loc, Some(model));
+        }
+    }
+
+    /// Returns the model at a given location or `None`
+    /// if the chunk is not loaded
+    ///
+    /// # Arguments
+    ///
+    /// * `loc` - The location of the chunk (model)
+    fn model(&self, loc: &Vector2<i32>) -> Option<&ChunkModel> {
+        if let Some(model) = self.chunk_map.get(loc) {
+            model.as_ref()
+        } else {
+            None
+        }
+    }
+
+    // /// Renders the scene
+    // ///
+    // /// # Arguments
+    // ///
+    // /// * `camera` - A perspective camera
+    // pub fn render(&mut self, camera: &PerspectiveCamera) {
+    //     let shader_program = self.shader_program.borrow_mut();
+    //     shader_program.enable();
+    //     shader_program.set_uniform_1i("u_Texture", 0);
+    //
+    //     self.tex_atlas.bind(None);
+    //
+    //     for pos in self.chunk_positions.iter() {
+    //         let chunk = Chunk::new(&self.gl, Vector2::new(0, 0));
+    //         let mesh = make_greedy_chunk_mesh(&chunk);
+    //
+    //         let chunk_model = ChunkModel::from_chunk_mesh(&self.gl, &mesh);
+    //         chunk_model.bind();
+    //
+    //         // Create a new entity
+    //         let ent = Entity::at_pos(Vector3::new(pos.x * CHUNK_SIZE as f32, 0.0, pos.y * CHUNK_SIZE as f32));
+    //
+    //         // Calculate model view projection matrix
+    //         let model = ent.model_matrix();
+    //         let view = camera.view_matrix();
+    //         let proj = camera.proj_matrix();
+    //         let mvp = proj * view * model;
+    //         shader_program.set_uniform_mat4f("u_MVP", &mvp);
+    //
+    //         // `OpenGL` draw call
+    //         unsafe {
+    //             self.gl.DrawElements(
+    //                 gl::TRIANGLES,
+    //                 chunk_model.ib().index_count() as i32,
+    //                 gl::UNSIGNED_INT,
+    //                 std::ptr::null(),
+    //             );
+    //         }
+    //
+    //         chunk_model.unbind();
+    //     }
+    //
+    //     self.tex_atlas.unbind();
+    //     shader_program.disable();
+    //     self.chunk_positions.clear();
+    // }
 
     /// Renders a given chunk
     ///
@@ -428,10 +506,12 @@ impl ChunkRenderer {
         }
 
         if recalculate {
-            chunk.recalculate_model();
+            self.recalculate_chunk(&chunk);
+            // chunk.recalculate_model();
         }
 
-        if let Some(chunk_model) = chunk.model.lock().unwrap().as_ref() {
+        // if let Some(chunk_model) = chunk.model.lock().unwrap().as_ref() {
+        if let Some(chunk_model) = self.model(chunk.loc()) {
             let shader_program = self.shader_program.borrow();
             shader_program.enable();
             shader_program.set_uniform_1i("u_Texture", 0);
@@ -517,7 +597,7 @@ impl VoxelFace {
     fn new(chunk: &Chunk, loc: Vector3<i16>, side: Side) -> Self {
         Self {
             side,
-            material: chunk.block(loc).unwrap(),
+            material: chunk.block(loc).unwrap_or(Material::Air),
         }
     }
 }

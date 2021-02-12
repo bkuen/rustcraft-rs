@@ -25,18 +25,18 @@ pub trait TerrainGen {
     /// * `chunk` - A mutable instance of a chunk
     /// * `height_map` - The height map which should be applied
     /// to the generator
-    fn gen_smooth_terrain(&self, chunk: &mut Chunk, height_map: &[i32; CHUNK_AREA]);
+    fn gen_smooth_terrain(&self, chunk: &Chunk, height_map: &[i32; CHUNK_AREA]);
 }
 
 #[derive(Default)]
 pub struct SimpleTerrainGen {}
 
 impl TerrainGen for SimpleTerrainGen {
-    fn gen_heightmap(&self, loc: &Vector2<i32>) -> [i32; 64] {
+    fn gen_heightmap(&self, loc: &Vector2<i32>) -> [i32; CHUNK_AREA] {
         let cx = loc.x;
         let cy = loc.y;
 
-        let mut height_map = [0i32; 64];
+        let mut height_map = [0i32; CHUNK_AREA];
 
         for y in 0..CHUNK_SIZE {
             for x in 0..CHUNK_SIZE {
@@ -50,7 +50,7 @@ impl TerrainGen for SimpleTerrainGen {
                 value = (value + 1.0) / 2.0;
                 // Make it bigger
                 // value *= 5.0 + 32.0;
-                value *= 1.0 + 8.0;
+                value *= 1.0 + 15.0;
 
                 // Set value into height map
                 height_map[y * CHUNK_SIZE + x] = i32::from_f64(value).unwrap();
@@ -60,7 +60,7 @@ impl TerrainGen for SimpleTerrainGen {
         height_map
     }
 
-    fn gen_smooth_terrain(&self, chunk: &mut Chunk, height_map: &[i32; 64]) {
+    fn gen_smooth_terrain(&self, chunk: &Chunk, height_map: &[i32; CHUNK_AREA]) {
         for z in 0..CHUNK_SIZE {
             for x in 0..CHUNK_SIZE {
                 let height = height_map[z * CHUNK_SIZE + x];
