@@ -2,11 +2,13 @@
 
 use crate::graphics::gl::{gl, Gl};
 use crate::resources::Resources;
-use image::GenericImageView;
+use image::{GenericImageView, GenericImage};
 use std::os::raw::c_void;
 use std::path::PathBuf;
 use std::ops::{Deref, DerefMut};
 use cgmath::Vector2;
+use std::borrow::Borrow;
+use std::str::FromStr;
 
 /// Texture
 ///
@@ -67,10 +69,6 @@ impl Texture {
         // Setup `OpenGL` texture parameters and image data
         unsafe {
             gl.BindTexture(gl::TEXTURE_2D, id);
-            gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-            gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-            gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
-            gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
             gl.TexImage2D(
                 gl::TEXTURE_2D,
                 0,
@@ -82,7 +80,13 @@ impl Texture {
                 gl::UNSIGNED_BYTE,
                 texture.local_buffer.as_ptr() as *const c_void,
             );
-            gl.BindTexture(gl::TEXTURE_2D, 0);
+            // gl.GenerateMipmap(gl::TEXTURE_2D);
+            gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+            gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+            gl.TexParameterf(gl::TEXTURE_2D, gl::TEXTURE_LOD_BIAS, -0.4f32);
+            // gl.BindTexture(gl::TEXTURE_2D, 0);
         }
 
         texture
@@ -131,6 +135,129 @@ impl Texture {
 impl Drop for Texture {
     fn drop(&mut self) {
         unsafe { self.gl.DeleteTextures(1, &self.id); }
+    }
+}
+
+/// TextureArray
+///
+/// A `TextureArray` is used to represent a texture atlas
+/// in an `OpenGL` context. Each sprite is represented as
+/// an item of an array of textures in different layers
+/// for each mipmap.
+pub struct TextureArray {
+    /// An `OpenGL` instance
+    gl: Gl,
+    /// The id of the texture array
+    id: u32,
+}
+
+impl TextureArray {
+    /// Creates a new `Texture` from the given `Resources` and its file path
+    ///
+    /// # Arguments
+    ///
+    /// * `gl` - An `OpenGL` instance
+    /// * `res` - A `Resource` instance
+    /// * `file_path` - The file location relative to the
+    /// * `sprite_size` - The size of the sprite
+    /// * `mip_level` - The mip map level which is used for the texture
+    pub fn from_resource(gl: &Gl, res: &Resources, file_path: &str, sprite_size: (i32, i32), mip_level: i32) -> Self {
+        // Load image from resources
+        let mut image = res.load_image(file_path).unwrap();
+
+        // Flip image vertically for `OpenGL` use
+        image = image.flipv();
+
+        let raw_img = image.clone().into_rgba8().as_ptr();
+
+        // Load image from resources
+        let mut grass_image = res.load_image("textures/grass.png").unwrap();
+        grass_image = grass_image.flipv();
+
+        // Setup `OpenGL`
+        let mut id = 0;
+        unsafe {
+            let (w, h) = sprite_size;
+            gl.GenTextures(1, &mut id);
+            gl.BindTexture(gl::TEXTURE_2D_ARRAY, id);
+            // gl.TexStorage3D(gl::TEXTURE_2D_ARRAY, 3, gl::RGBA8, w, h, w*h);
+            gl.TexImage3D(
+                gl::TEXTURE_2D_ARRAY,
+                0,
+                gl::RGBA as i32,
+                w,
+                h,
+                w*h,
+                0,
+                gl::RGBA,
+                gl::UNSIGNED_BYTE,
+                // std::ptr::null()
+                raw_img as *const c_void
+            );
+
+            for i in 0..w*h {
+                let sub_h = ((i / h) * 16)  as u32;
+                let sub_w = ((i % h) * 16) as u32;
+                let sub_img = image.sub_image(sub_w, sub_h, w as u32, h as u32).to_image();
+                // sub_img.save(PathBuf::from(format!("txt_{}.png", i))).unwrap();
+                let sub_data = sub_img.as_ptr();
+                gl.TexSubImage3D(
+                    gl::TEXTURE_2D_ARRAY,
+                    0,
+                    0,
+                    0,
+                    i,
+                    w,
+                    h,
+                    1,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    sub_data as *const c_void,
+                )
+            }
+
+            gl.GenerateMipmap(gl::TEXTURE_2D_ARRAY);
+            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MAX_LEVEL, 4);
+            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
+            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
+            // gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_WRAP_T, gl::TEXTURE_WRAP_R as i32);
+
+
+
+            // Unbind texture
+            gl.BindTexture(gl::TEXTURE_2D_ARRAY, 0);
+        }
+
+        Self {
+            id,
+            gl: gl.clone(),
+        }
+    }
+
+    /// Binds the texture in the current `OpenGL` context
+    ///
+    /// # Arguments
+    ///
+    /// * `slot_op` - A optional slot the texture should bound to,
+    /// default: 0
+    pub fn bind(&self, slot_op: Option<u32>) {
+        let slot = slot_op.unwrap_or(0);
+        unsafe {
+            self.gl.ActiveTexture(gl::TEXTURE0 + slot);
+            self.gl.BindTexture(gl::TEXTURE_2D_ARRAY, self.id);
+        }
+    }
+
+    /// Unbinds the texture from the current `OpenGL` context
+    pub fn unbind(&self) {
+        unsafe { self.gl.BindTexture(gl::TEXTURE_2D_ARRAY, 0); }
+    }
+
+    /// Returns the texture id
+    pub fn id(&self) -> u32 {
+        self.id
     }
 }
 

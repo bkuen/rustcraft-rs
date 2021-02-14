@@ -247,6 +247,12 @@ impl ShaderProgram {
         unsafe { self.gl.Uniform1i(location, v); }
     }
 
+    /// Sets a uniform of u32
+    pub fn set_uniform_1ui(&self, name: &str, v: u32) {
+        let location = self.uniform_location(name);
+        unsafe { self.gl.Uniform1ui(location, v); }
+    }
+
     /// Sets a uniform of f32
     pub fn set_uniform_1f(&self, name: &str, v: f32) {
         let location = self.uniform_location(name);

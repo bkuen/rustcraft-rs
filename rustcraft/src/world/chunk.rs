@@ -7,7 +7,7 @@ use crate::gl;
 use crate::graphics::gl::Gl;
 use crate::graphics::mesh::{Mesh, Model};
 use crate::graphics::shader::ShaderProgram;
-use crate::graphics::texture::{TextureAtlas, Texture};
+use crate::graphics::texture::{TextureAtlas, Texture, TextureArray};
 use std::borrow::{BorrowMut, Borrow};
 use std::ops::{Deref};
 use crate::graphics::buffer::{VertexBufferLayout, VertexBuffer};
@@ -343,6 +343,12 @@ impl ChunkMesh {
             Side::BOTTOM => push_tile_offset(&mut self.tile_offsets, [2.0, 15.0]),
             _ => push_tile_offset(&mut self.tile_offsets, [0.0, 15.0]),
         }
+
+        // match face.side {
+        //     Side::TOP => push_tile_offset(&mut self.tile_offsets, [1.0, 0.0]),
+        //     Side::BOTTOM => push_tile_offset(&mut self.tile_offsets, [2.0, 0.0]),
+        //     _ => push_tile_offset(&mut self.tile_offsets, [0.0, 0.0]),
+        // }
     }
 }
 
@@ -355,6 +361,8 @@ pub struct ChunkRenderer {
     gl: Gl,
     /// A texture atlas
     tex_atlas: TextureAtlas,
+    /// An array of textures
+    textures: TextureArray,
     /// A shader program
     shader_program: ShaderProgram,
     /// A map which internally stores the chunk models
@@ -381,9 +389,13 @@ impl ChunkRenderer {
         let tex_atlas = TextureAtlas::from_texture(texture, Vector2::new(16.0, 16.0));
         tex_atlas.unbind();
 
+
+        let textures = TextureArray::from_resource(gl, resources, "textures/textures.png", (16, 16), 1);
+
         Self {
             shader_program,
             tex_atlas,
+            textures,
             gl: gl.clone(),
             chunk_map: HashMap::new(),
             chunk_update_channel: channel(),
@@ -417,7 +429,7 @@ impl ChunkRenderer {
         let sender = tx.clone();
         thread::spawn(move || {
             let mesh = make_greedy_chunk_mesh(&chunk);
-            sender.send((chunk.loc.clone(), mesh)).unwrap();
+            sender.send((chunk.loc.clone(), mesh));
         });
 
     }
@@ -514,8 +526,14 @@ impl ChunkRenderer {
         if let Some(chunk_model) = self.model(chunk.loc()) {
             let shader_program = self.shader_program.borrow();
             shader_program.enable();
-            shader_program.set_uniform_1i("u_Texture", 0);
-            self.tex_atlas.bind(None);
+
+            let texture_unit = 2;
+
+
+            // shader_program.set_uniform_1i("u_Texture", 0);
+            // self.tex_atlas.bind(None);
+            shader_program.set_uniform_1i("u_Texture", texture_unit as i32);
+            self.textures.bind(Some(texture_unit));
             chunk_model.bind();
 
             // Create a new entity
@@ -543,7 +561,8 @@ impl ChunkRenderer {
             }
 
             chunk_model.unbind();
-            self.tex_atlas.unbind();
+            // self.tex_atlas.unbind();
+            self.textures.unbind();
             shader_program.disable();
         }
     }
