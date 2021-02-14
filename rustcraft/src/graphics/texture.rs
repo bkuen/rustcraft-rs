@@ -168,7 +168,7 @@ impl TextureArray {
         // Flip image vertically for `OpenGL` use
         image = image.flipv();
 
-        let raw_img = image.clone().into_rgba8().as_ptr();
+        let raw_img = image.clone().into_rgba().as_ptr();
 
         // Load image from resources
         let mut grass_image = res.load_image("textures/grass.png").unwrap();
@@ -198,9 +198,13 @@ impl TextureArray {
             for i in 0..w*h {
                 let sub_h = ((i / h) * 16)  as u32;
                 let sub_w = ((i % h) * 16) as u32;
+                println!("W: {} H: {}", sub_w, sub_h);
                 let sub_img = image.sub_image(sub_w, sub_h, w as u32, h as u32).to_image();
-                // sub_img.save(PathBuf::from(format!("txt_{}.png", i))).unwrap();
+                // sub_img.save(PathBuf::from(format!("rustcraft/res/textures/txt_{}.png", i))).unwrap();
                 let sub_data = sub_img.as_ptr();
+
+                println!("Sub data: {:?}", sub_data);
+
                 gl.TexSubImage3D(
                     gl::TEXTURE_2D_ARRAY,
                     0,

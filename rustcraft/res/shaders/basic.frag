@@ -74,7 +74,11 @@ void main() {
 
     vec2 coord = (v_TileCoord + v_TexCoord * 16)/16.0;
 
-    vec4 texColor = texture(u_Texture, vec3(tileOffset + tileSize * v_TexCoord + fract(tileUV), 0));
+    vec2 tileCoord = vec2(15.0, 1.0);
+    tileOffset = tileCoord / 16.0;
+
+    vec4 texColor = texture(u_Texture, vec3(tileOffset + tileSize * tileCoord + fract(tileUV), 0));
+//    vec4 texColor = texture(u_Texture, vec3(tileOffset + tileSize * tileCoord + fract(tileUV), 0));
 //    vec4 texColor = texture(u_Texture, vec3(texCoord, 0));
 //    vec4 texColor = texture(u_Texture, texCoord);
     color = texColor;
