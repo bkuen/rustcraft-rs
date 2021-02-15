@@ -64,6 +64,7 @@ impl Rustcraft {
         glfw.window_hint(glfw::WindowHint::ContextVersionMajor(3));
         glfw.window_hint(glfw::WindowHint::ContextVersionMinor(3));
         glfw.window_hint(glfw::WindowHint::OpenGlProfile(OpenGlProfileHint::Core));
+        glfw.window_hint(glfw::WindowHint::Samples(Some(8)));
 
         let window_props = WindowProps {
             width: 1080,
@@ -85,6 +86,7 @@ impl Rustcraft {
         unsafe {
             gl.ClearColor(0.23, 0.38, 0.47, 1.0);
             gl.Viewport(0, 0, width, height);
+            gl.Enable(gl::MULTISAMPLE);
         }
 
 

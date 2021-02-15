@@ -17,6 +17,6 @@ void main() {
     vec2 tileOffset = v_TileCoord / 16.0;
     float layer = v_TileCoord.y * 16.0 + v_TileCoord.x;
 
-    vec4 texColor = texture(u_Texture, vec3(tileOffset + fract(tileUV), layer));
+    vec4 texColor = texture(u_Texture, vec3(fract(tileUV), layer));
     color = texColor;
 }

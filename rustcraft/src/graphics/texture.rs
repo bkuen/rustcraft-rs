@@ -1,12 +1,13 @@
 //! Types to represent textures
 
-use crate::graphics::gl::{gl, Gl};
+use crate::graphics::gl::{gl, Gl, GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, GL_TEXTURE_MAX_ANISOTROPY_EXT};
 use crate::resources::Resources;
 use image::{GenericImageView, GenericImage};
 use std::os::raw::c_void;
 use std::path::PathBuf;
 use std::ops::{Deref, DerefMut};
 use cgmath::Vector2;
+use std::cmp::min;
 
 /// Texture
 ///
@@ -213,12 +214,22 @@ impl TextureArray {
             gl.GenerateMipmap(gl::TEXTURE_2D_ARRAY);
             gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MIN_FILTER, gl::NEAREST_MIPMAP_LINEAR as i32);
             gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MAX_LEVEL, 4);
+            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MAX_LEVEL, mip_level);
+            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_LOD_BIAS, 0);
             gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
             gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
             // gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_WRAP_T, gl::TEXTURE_WRAP_R as i32);
 
-
+            // Anisotropic filtering
+            if gl.ext_supported("GL_EXT_texture_filter_anisotropic") {
+                let mut amount= 0.0;
+                unsafe {
+                    gl.GetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut amount);
+                    gl.TexParameterf(gl::TEXTURE_2D_ARRAY, GL_TEXTURE_MAX_ANISOTROPY_EXT, amount);
+                }
+            } else {
+                println!("Anisotropic filtering not supported!");
+            }
 
             // Unbind texture
             gl.BindTexture(gl::TEXTURE_2D_ARRAY, 0);

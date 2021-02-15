@@ -21,7 +21,9 @@ fn main() {
 
     // Write gl bindings to `gl_bindings.rs`
     let mut file = File::create(&Path::new(&out_dir).join("gl_bindings.rs")).unwrap();
-    Registry::new(Api::Gl, (4, 5), Profile::Core, Fallbacks::All, [])
+    Registry::new(Api::Gl, (4, 5), Profile::Core, Fallbacks::All, [
+        "EXT_texture_filter_anisotropic"
+    ])
         .write_bindings(StructGenerator, &mut file)
         .unwrap();
 
