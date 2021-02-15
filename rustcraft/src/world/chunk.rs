@@ -390,7 +390,7 @@ impl ChunkRenderer {
         tex_atlas.unbind();
 
 
-        let textures = TextureArray::from_resource(gl, resources, "textures/textures.png", (16, 16), 1);
+        let textures = TextureArray::from_resource(gl, resources, "textures/textures.png", (16, 16), 6);
 
         Self {
             shader_program,

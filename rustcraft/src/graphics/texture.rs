@@ -7,8 +7,6 @@ use std::os::raw::c_void;
 use std::path::PathBuf;
 use std::ops::{Deref, DerefMut};
 use cgmath::Vector2;
-use std::borrow::Borrow;
-use std::str::FromStr;
 
 /// Texture
 ///
@@ -168,19 +166,13 @@ impl TextureArray {
         // Flip image vertically for `OpenGL` use
         image = image.flipv();
 
-        let raw_img = image.clone().into_rgba().as_ptr();
-
-        // Load image from resources
-        let mut grass_image = res.load_image("textures/grass.png").unwrap();
-        grass_image = grass_image.flipv();
-
         // Setup `OpenGL`
         let mut id = 0;
         unsafe {
             let (w, h) = sprite_size;
             gl.GenTextures(1, &mut id);
             gl.BindTexture(gl::TEXTURE_2D_ARRAY, id);
-            // gl.TexStorage3D(gl::TEXTURE_2D_ARRAY, 3, gl::RGBA8, w, h, w*h);
+            gl.TexStorage3D(gl::TEXTURE_2D_ARRAY, mip_level, gl::RGBA8, w, h, w*h);
             gl.TexImage3D(
                 gl::TEXTURE_2D_ARRAY,
                 0,
@@ -191,19 +183,17 @@ impl TextureArray {
                 0,
                 gl::RGBA,
                 gl::UNSIGNED_BYTE,
-                // std::ptr::null()
-                raw_img as *const c_void
+                std::ptr::null()
+                // raw_img as *const c_void
             );
 
             for i in 0..w*h {
                 let sub_h = ((i / h) * 16)  as u32;
                 let sub_w = ((i % h) * 16) as u32;
-                println!("W: {} H: {}", sub_w, sub_h);
                 let sub_img = image.sub_image(sub_w, sub_h, w as u32, h as u32).to_image();
                 // sub_img.save(PathBuf::from(format!("rustcraft/res/textures/txt_{}.png", i))).unwrap();
-                let sub_data = sub_img.as_ptr();
 
-                println!("Sub data: {:?}", sub_data);
+                let sub_data = sub_img.as_ptr();
 
                 gl.TexSubImage3D(
                     gl::TEXTURE_2D_ARRAY,
@@ -221,7 +211,7 @@ impl TextureArray {
             }
 
             gl.GenerateMipmap(gl::TEXTURE_2D_ARRAY);
-            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MIN_FILTER, gl::NEAREST_MIPMAP_LINEAR as i32);
             gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
             gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_MAX_LEVEL, 4);
             gl.TexParameteri(gl::TEXTURE_2D_ARRAY, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);

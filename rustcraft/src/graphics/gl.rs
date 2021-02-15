@@ -1,6 +1,5 @@
 //! Structs improving the way `OpenGL` is used
 
-use std::rc::Rc;
 use std::ops::Deref;
 
 pub use crate::graphics::bindings::types as types;

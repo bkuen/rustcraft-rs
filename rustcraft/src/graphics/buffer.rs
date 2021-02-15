@@ -190,6 +190,7 @@ impl VertexBufferLayout {
         match type_name::<T>() {
             "f32" => element_type = gl::FLOAT,
             "u32" => element_type = gl::UNSIGNED_INT,
+            "i32" => element_type = gl::INT,
             "os::raw::c_uchar" => element_type = gl::UNSIGNED_BYTE,
             _ => panic!("Unsupported type!"),
         }
@@ -210,6 +211,11 @@ impl VertexBufferLayout {
     /// Push a new u32 element to the layout
     pub fn push_u32(&mut self, count: i32) {
         self.push::<u32>(count, gl::FALSE);
+    }
+
+    /// Push a new i32 element to the layout
+    pub fn push_i32(&mut self, count: i32) {
+        self.push::<i32>(count, gl::FALSE);
     }
 
     /// Push a new f32 element to the layout

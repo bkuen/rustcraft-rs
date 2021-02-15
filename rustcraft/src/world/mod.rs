@@ -60,7 +60,7 @@ impl World {
     /// the file system
     pub fn load_chunk(&mut self, loc: &Vector2<i32>) {
         if self.chunk(loc).is_none() {
-            let mut chunk = Chunk::new(&self.gl, loc.clone());
+            let chunk = Chunk::new(&self.gl, loc.clone());
             self.chunks.push(chunk.clone());
 
             let loc = loc.clone();
