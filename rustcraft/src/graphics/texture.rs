@@ -7,7 +7,6 @@ use std::os::raw::c_void;
 use std::path::PathBuf;
 use std::ops::{Deref, DerefMut};
 use cgmath::Vector2;
-use std::cmp::min;
 
 /// Texture
 ///
@@ -223,10 +222,8 @@ impl TextureArray {
             // Anisotropic filtering
             if gl.ext_supported("GL_EXT_texture_filter_anisotropic") {
                 let mut amount= 0.0;
-                unsafe {
-                    gl.GetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut amount);
-                    gl.TexParameterf(gl::TEXTURE_2D_ARRAY, GL_TEXTURE_MAX_ANISOTROPY_EXT, amount);
-                }
+                gl.GetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &mut amount);
+                gl.TexParameterf(gl::TEXTURE_2D_ARRAY, GL_TEXTURE_MAX_ANISOTROPY_EXT, amount);
             } else {
                 println!("Anisotropic filtering not supported!");
             }

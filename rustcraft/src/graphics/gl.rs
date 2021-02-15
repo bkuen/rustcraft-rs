@@ -6,8 +6,6 @@ pub use crate::graphics::bindings::types as types;
 pub use crate::graphics::bindings as gl;
 use crate::graphics::bindings::types::GLenum;
 use std::sync::Arc;
-use std::ptr::eq;
-use std::str::from_utf8;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
@@ -51,7 +49,7 @@ impl Gl {
         unsafe {
             self.GetIntegerv(gl::NUM_EXTENSIONS, &mut num_ext);
             for i in 0..num_ext {
-                let mut ext = self.GetStringi(gl::EXTENSIONS, i as u32);
+                let ext = self.GetStringi(gl::EXTENSIONS, i as u32);
                 let curr_ext_name = CStr::from_ptr(ext as *mut c_char).to_owned();
                 if ext_name.eq(&curr_ext_name) {
                     return true;
