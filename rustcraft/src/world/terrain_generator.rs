@@ -1,6 +1,6 @@
 use crate::world::chunk::{CHUNK_AREA, Chunk, CHUNK_SIZE, CHUNK_HEIGHT};
 use cgmath::{Vector2, Vector3};
-use crate::world::block::Material;
+use crate::world::block::Materials;
 use noise::{Perlin, NoiseFn};
 use cgmath::num_traits::FromPrimitive;
 
@@ -66,7 +66,7 @@ impl TerrainGen for SimpleTerrainGen {
                 let height = height_map[z * CHUNK_SIZE + x];
                 for y in 0..CHUNK_HEIGHT {
                     if y as i32 <= height {
-                        chunk.set_block(Vector3::new(x as i16, y as i16, z as i16), Material::Dirt);
+                        chunk.set_block(Vector3::new(x as i16, y as i16, z as i16), Materials::Grass);
                     }
                 }
             }

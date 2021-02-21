@@ -75,6 +75,18 @@ impl Resources {
         Ok(unsafe { ffi::CString::from_vec_unchecked(buffer)})
     }
 
+    /// Loads the content of a file in the resource directory
+    ///
+    /// # Arguments
+    ///
+    /// * `resource_name` - The resource name which should be load
+    pub fn load_file_content(&self, resource_name: &str) -> Result<String, ResourceError> {
+        let mut file = fs::File::open(resource_name_to_path(&self.root_path, resource_name))?;
+        let mut content = String::new();
+        file.read_to_string(&mut content)?;
+        Ok(content)
+    }
+
     /// Loads a image from a resource directory.
     ///
     /// # Arguments

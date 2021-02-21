@@ -16,12 +16,16 @@ use glfw::{Action, Context, Key, Glfw, Window, WindowEvent, SwapInterval, OpenGl
 
 use std::path::Path;
 use std::sync::mpsc::Receiver;
+use crate::world::block::BlockRegistry;
+use crate::script_engine::ScriptEngine;
+use crate::script_engine::terrain::add_block_api;
 
 pub mod camera;
 pub mod entity;
 pub mod input;
 pub mod graphics;
 pub mod resources;
+pub mod script_engine;
 pub mod timestep;
 pub mod world;
 
@@ -122,17 +126,21 @@ impl Rustcraft {
         }
 
         let resources = Resources::from_relative_exe_path(Path::new("res")).unwrap();
+        let block_registry = BlockRegistry::default();
+        let script_engine  = ScriptEngine::new();
+        add_block_api(&script_engine, &block_registry);
+
+        script_engine.run_file(&resources, "scripts/world/blocks.lua");
+
+        for block in block_registry.blocks() {
+            println!("BlockData {} {}", block.id(), block.name())
+        }
+
         // let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 34.0,  0.0));
         let mut camera = PerspectiveCamera::at_pos(Vector3::new(0.0, 10.0,  0.0));
         camera.rotate(45.0, -30.0, 0.0);
 
-        let mut world = World::new(&self.gl, &resources);
-        // world.load_chunk(Vector2::new(0, 0));
-        // world.load_chunk(Vector2::new(0, 1));
-        // world.load_chunk(Vector2::new(1, 0));
-        // world.load_chunk(Vector2::new(1, 1));
-
-        // let mut chunk_renderer: ChunkRenderer = ChunkRenderer::new(&self.gl, &resources);
+        let mut world = World::new(&self.gl, &resources, &block_registry);
 
         while !self.window.should_close() {
             let time = f32::from_f64(self.glfw.get_time()).unwrap();

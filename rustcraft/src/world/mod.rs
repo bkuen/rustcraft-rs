@@ -6,6 +6,7 @@ use crate::world::terrain_generator::{TerrainGen, SimpleTerrainGen};
 use cgmath::Vector2;
 use std::thread;
 use std::sync::Arc;
+use crate::world::block::BlockRegistry;
 
 pub mod block;
 pub mod chunk;
@@ -31,6 +32,8 @@ pub struct World {
     /// The chunk renderer which is used to render
     /// the given chunks to the screen
     chunk_renderer: ChunkRenderer,
+    /// The block registry
+    block_registry: BlockRegistry,
     /// The terrain generator which is used to generate
     /// loading chunks
     terrain_gen: Arc<Box<dyn TerrainGen + Send + Sync>>,
@@ -43,11 +46,13 @@ impl World {
     ///
     /// * `gl` - An `OpenGl` instance
     /// * `res` - A `Resources` instance
-    pub fn new(gl: &Gl, res: &Resources) -> Self {
+    /// * `block_registry` - A block registry
+    pub fn new(gl: &Gl, res: &Resources, block_registry: &BlockRegistry) -> Self {
         Self {
             gl: gl.clone(),
             chunks: Vec::new(),
             chunk_renderer: ChunkRenderer::new(gl, res),
+            block_registry: block_registry.clone(),
             terrain_gen: Arc::new(Box::new(SimpleTerrainGen::default()) as Box<dyn TerrainGen + Send + Sync>),
         }
     }
@@ -60,7 +65,7 @@ impl World {
     /// the file system
     pub fn load_chunk(&mut self, loc: &Vector2<i32>) {
         if self.chunk(loc).is_none() {
-            let chunk = Chunk::new(&self.gl, loc.clone());
+            let chunk = Chunk::new(&self.gl, loc.clone(), &self.block_registry);
             self.chunks.push(chunk.clone());
 
             let loc = loc.clone();

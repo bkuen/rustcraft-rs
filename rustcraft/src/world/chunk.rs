@@ -1,5 +1,5 @@
 use cgmath::{Vector3, Vector2};
-use crate::world::block::{Material};
+use crate::world::block::{Materials, BlockRegistry, Material};
 use crate::resources::Resources;
 use crate::camera::PerspectiveCamera;
 use crate::entity::Entity;
@@ -52,6 +52,8 @@ pub struct ChunkInner {
     loc: Vector2<i32>,
     /// The blocks stored in the chunk
     blocks: Mutex<Box<[Material; CHUNK_VOLUME]>>,
+    /// The block registry
+    block_registry: BlockRegistry,
     /// The current chunk model
     model: Arc<Mutex<Option<ChunkModel>>>,
     /// A boolean determining whether the chunk model should be recalculated
@@ -80,34 +82,17 @@ impl Chunk {
     ///
     /// * `gl` - An `OpenGl` instance
     /// * `loc` - The location of the chunk
-    pub fn new(gl: &Gl, loc: Vector2<i32>) -> Self {
+    pub fn new(gl: &Gl, loc: Vector2<i32>, block_registry: &BlockRegistry) -> Self {
         Self {
             inner: Arc::new(ChunkInner {
                 loc,
                 gl: gl.clone(),
-                blocks: Mutex::new(Box::new([Material::Air; CHUNK_VOLUME])),
+                blocks: Mutex::new(Box::new([Materials::Air as u8; CHUNK_VOLUME])),
+                block_registry: block_registry.clone(),
                 model: Arc::new(Mutex::new(None)),
                 recalculate: Arc::new(Mutex::new(true)),
             }),
         }
-    }
-
-    /// Recalculates the chunk mesh and model
-    pub fn recalculate_model(&self) {
-        // let chunk = self.clone();
-        // thread::spawn(move || {
-        //     let mesh = make_greedy_chunk_mesh(&chunk);
-        //     let model = ChunkModel::from_chunk_mesh(&chunk.gl, &mesh);
-        //
-        //     {
-        //         let mut guard = chunk.model.lock().unwrap();
-        //         *guard = Some(model);
-        //     }
-        //     {
-        //         let mut guard = chunk.recalculate.lock().unwrap();
-        //         *guard = false;
-        //     }
-        // });
     }
 
     /// Places a block to the given location
@@ -115,16 +100,16 @@ impl Chunk {
     /// # Argument
     ///
     /// * `loc` - The location the block should be placed
-    /// * `material` - The material of the
+    /// * `material` - The material of the block
     ///
     /// # Safety
     ///
     /// If the location is out of bounds, the block won't be placed
-    pub fn set_block(&self, loc: Vector3<i16>, material: Material) {
+    pub fn set_block<T: Into<Material>>(&self, loc: Vector3<i16>, material: T) {
         if let Some(index) = self.index_of(loc) {
             {
                 let mut guard = self.blocks.lock().unwrap();
-                (*guard)[index] = material;
+                (*guard)[index] = material.into();
             }
             {
                 let mut guard = self.recalculate.lock().unwrap();
@@ -141,6 +126,11 @@ impl Chunk {
     /// Returns the location of the chunk
     pub fn loc(&self) -> &Vector2<i32> {
         &self.loc
+    }
+
+    /// Returns the block registry
+    pub fn block_registry(&self) -> &BlockRegistry {
+        &self.block_registry
     }
 
     // /// Returns all blocks of the chunk as `Iter`
@@ -343,12 +333,6 @@ impl ChunkMesh {
             Side::BOTTOM => push_tile_offset(&mut self.tile_offsets, [2.0, 15.0]),
             _ => push_tile_offset(&mut self.tile_offsets, [0.0, 15.0]),
         }
-
-        // match face.side {
-        //     Side::TOP => push_tile_offset(&mut self.tile_offsets, [1.0, 0.0]),
-        //     Side::BOTTOM => push_tile_offset(&mut self.tile_offsets, [2.0, 0.0]),
-        //     _ => push_tile_offset(&mut self.tile_offsets, [0.0, 0.0]),
-        // }
     }
 }
 
@@ -429,7 +413,7 @@ impl ChunkRenderer {
         let sender = tx.clone();
         thread::spawn(move || {
             let mesh = make_greedy_chunk_mesh(&chunk);
-            sender.send((chunk.loc.clone(), mesh));
+            sender.send((chunk.loc.clone(), mesh)).unwrap_or_else(drop);
         });
 
     }
@@ -616,7 +600,7 @@ impl VoxelFace {
     fn new(chunk: &Chunk, loc: Vector3<i16>, side: Side) -> Self {
         Self {
             side,
-            material: chunk.block(loc).unwrap_or(Material::Air),
+            material: chunk.block(loc).unwrap_or(Materials::Air as u8),
         }
     }
 }
@@ -826,11 +810,9 @@ fn make_greedy_chunk_mesh(chunk: &Chunk) -> ChunkMesh {
                              * Here we check the `opaque` attribute associated with the material of
                              * the `VoxelFace` to ensure that we don't mesh aby culled faces.
                              */
-                            let opaque = mask[n].unwrap().material != Material::Air;
+                            let block_data = chunk.block_registry().block_data(mask[n].unwrap().material).unwrap();
 
-                            // println!("Opaque {:?}, {:?}", mask[n].unwrap().material, Material::Air);
-
-                            if opaque {
+                            if block_data.opaque() {
                                 /*
                                  * Add quad
                                  */
